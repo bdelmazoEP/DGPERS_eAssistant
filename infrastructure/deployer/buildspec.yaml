@@ -17,9 +17,7 @@ phases:
         GITLAB_TOKEN_USERNAME=$(echo "$TOKEN_JSON" | jq -r .username)
 
       - echo "Cloning repo. Branch -> $GIT_BRANCH"
-      - |
-        git clone -b "$GIT_BRANCH" --single-branch \
-        https://${GITLAB_TOKEN_USERNAME}:${GITLAB_TOKEN_PASSWORD}@code-repos.ep-foundry.ep.parl.union.eu/dg-pers/it-unit/streamline_hr_apps/eassistant.git source 
+      - git clone -b "$GIT_BRANCH" --single-branch https://github.com/bdelmazoEP/DGPERS_eAssistant.git source
       - cd source
       - export CODE_ROOT=$(pwd)
 
@@ -96,3 +94,4 @@ phases:
 artifacts:
   files:
     - '**/*'
+
