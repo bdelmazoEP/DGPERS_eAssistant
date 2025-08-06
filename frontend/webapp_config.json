@@ -1,0 +1,22 @@
+{
+    "description": {
+        "version": "v5.0",
+        "used_by": "Xyz"
+    },
+    "base_docs_url": "pers-documents-515966503650-eu-central-1/",
+    "base_s3_uri": "s3://pers-documents-515966503650-eu-central-1/",
+    "base_url": "https://d3eft42xsj0mgt.cloudfront.net/default/",
+    "display_fields": ["source"],
+    "locale": {
+        "app_name": "Test new version of eAssistant",
+        "question_button_placeholder": "Type your search here...",
+        "question_button_text": "Search",
+        "document_list_url_col": "Source Documents",
+        "document_list_num_chunk_col": "Document number",
+        "document_list_action_col": "Expand",
+        "app_msg_processing": "Processing request...",
+        "app_msg_initializing": "Initializing...",
+        "app_msg_preparing_doc_refs": "Preparing the document references...",
+        "search_bar_tool_tip_text": "Enter your question ensuring it is specific and focused on key details. Feel free to use your preferred language. Kindly note that the response provided is the result of generative AI and is not an official stance of the Parliament. Its primary purpose is to assist in accessing public archived documents and historical studies available in the Historical Archives."
+    }
+}

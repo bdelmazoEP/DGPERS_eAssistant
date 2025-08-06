@@ -1,0 +1,512 @@
+# === Unified CloudFormation Template for PERS eAssistant ===
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Unified Stack for deployment of a serverless Chatbot architecture, including API, CloudFront, Lambda functions, S3 buckets, and OpenSearch Serverless Collection.
+
+# === (1) Parameters === #
+Parameters:
+  ProjectId:
+    Type: String
+    Description: The elements created will have names that begin with this ID. The parameter must be 3 to 8 alphanumeric characters in lower case.
+    AllowedPattern: "^[a-z0-9]{1,8}$"
+    ConstraintDescription: "The parameter must be 3 to 8 alphanumeric characters in lower case."
+  
+  IAMUserArn:
+    Type: String
+    Description: ARN of the IAM user or role deploying this stack.
+    Default: arn:aws:iam::047493842081:role/aws-reserved/sso.amazonaws.com/eu-west-1/AWSReservedSSO_AWSAdministratorAccess_15c95dd3c9aada76  ###################
+
+Resources:
+  # === (2) S3 Buckets === #
+  # Documents bucket definition
+  ChatbotDocumentsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "${ProjectId}-documents-${AWS::AccountId}-${AWS::Region}"
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  # Documents bucket policy
+  ChatbotDocumentsBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref ChatbotDocumentsBucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          # Statement 1: Allow Bedrock access
+          - Sid: AllowAmazonBedrockAccess
+            Effect: Allow
+            Principal:
+              Service: "bedrock.amazonaws.com"
+            Action:
+              - "s3:GetObject"
+              - "s3:PutObject"
+              - "s3:ListBucket"
+            Resource:
+              - !Sub "arn:aws:s3:::${ChatbotDocumentsBucket}/*"
+              - !Sub "arn:aws:s3:::${ChatbotDocumentsBucket}"
+
+          # Statement 2: Allow CloudFront access
+          - Sid: AllowCloudFrontServicePrincipal
+            Effect: Allow
+            Principal:
+              Service: "cloudfront.amazonaws.com"
+            Action:
+              - "s3:GetObject"
+            Resource:
+              - !Sub "arn:aws:s3:::${ProjectId}-documents-${AWS::AccountId}-${AWS::Region}/*"
+            Condition: 
+              StringEquals:
+                AWS:SourceArn: !Sub "arn:aws:cloudfront::${AWS::AccountId}:distribution/${ChatbotCloudFrontDistribution.Id}"
+
+  # Code bucket definition
+  ChatbotCodeBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "${ProjectId}-code-${AWS::AccountId}-${AWS::Region}"
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  # Code bucket policy
+  ChatbotCodeBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref ChatbotCodeBucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: AllowCloudFrontServicePrincipal
+            Effect: Allow
+            Principal:
+              Service: "cloudfront.amazonaws.com"
+            Action:
+              - "s3:GetObject"
+            Resource:
+              - !Sub "arn:aws:s3:::${ProjectId}-code-${AWS::AccountId}-${AWS::Region}/*"
+            Condition: 
+              StringEquals:
+                AWS:SourceArn: !Sub "arn:aws:cloudfront::${AWS::AccountId}:distribution/${ChatbotCloudFrontDistribution.Id}"
+
+  # === (3) Lambda Layers === #
+  # Lambda base layer definition
+  ChatbotBaseDependencyLayer:
+    Type: AWS::Lambda::LayerVersion
+    Properties:
+      LayerName: !Sub "${ProjectId}-${AWS::AccountId}-base-dependency-layer"
+      Content:
+        S3Bucket: !Sub "${ProjectId}-deployer-${AWS::AccountId}-${AWS::Region}" #################### mapped to deployer bucket
+        S3Key: base_layer.zip 
+      CompatibleRuntimes:
+        - python3.11
+      Description: Standard Python packages
+
+  # Lambda custom layer definition
+  ChatbotCustomModulesLayer:
+    Type: AWS::Lambda::LayerVersion
+    Properties:
+      LayerName: !Sub "${ProjectId}-${AWS::AccountId}-custom-modules-layer"
+      Content:
+        S3Bucket: !Sub "${ProjectId}-deployer-${AWS::AccountId}-${AWS::Region}" #################### mapped to deployer bucket
+        S3Key: custom_layer.zip
+      CompatibleRuntimes:
+        - python3.11
+      Description: Custom NLP libraries and config files
+
+  # === (4) IAM Roles === #
+  # IAM Role for AOSS Collection management (for CreateIndex Lambda function)
+  ChatbotCollectionManagementRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${ProjectId}-${AWS::AccountId}-lambdacollectionmanagementrole"
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: !Sub "${ProjectId}-${AWS::AccountId}-collectionmanagementpolicy"
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - aoss:ListCollections
+                  - aoss:BatchGetCollection
+                  - aoss:CreateCollection
+                  - aoss:CreateSecurityPolicy
+                  - aoss:GetSecurityPolicy
+                  - aoss:ListSecurityPolicies
+                  - aoss:CreateAccessPolicy
+                  - aoss:GetAccessPolicy
+                  - aoss:ListAccessPolicies
+                  - aoss:APIAccessAll
+                  - aoss:DashboardsAccessAll
+                  - aoss:CreateIndex
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: '*'
+
+  # IAM Role for main Lambda function
+  ChatbotLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${ProjectId}-${AWS::AccountId}-lambda-role"
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        # Bedrock model invocation policy
+        - PolicyName: !Sub "${ProjectId}-${AWS::AccountId}-bedrock-perms"
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - bedrock:InvokeModel
+                  - bedrock:RetrieveAndGenerate
+                  - bedrock:InvokeModelWithResponseStream
+                Resource: 
+                  - !Sub "arn:aws:bedrock:${AWS::Region}::foundation-model/amazon.titan-embed-text-v2:0"
+                  - !Sub "arn:aws:bedrock:${AWS::Region}::foundation-model/anthropic.claude-3-sonnet-20240229-v1:0"
+                  - !Sub "arn:aws:bedrock:${AWS::Region}::foundation-model/anthropic.claude-3-5-sonnet-20240620-v1:0"
+                  - !Sub "arn:aws:bedrock:${AWS::Region}::foundation-model/cohere.rerank-v3-5:0"
+
+        # X-Ray
+        - PolicyName: !Sub "${ProjectId}-${AWS::AccountId}-xray-trace"
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - xray:PutTraceSegments
+                  - xray:PutTelemetryRecords
+                Resource: '*'
+
+        # CloudWatch
+        - PolicyName: !Sub "${ProjectId}-${AWS::AccountId}-logs"
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:*"
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${ProjectId}-${AWS::AccountId}-eassistant:*"
+
+        # OpenSearch Serverless
+        - PolicyName: !Sub "${ProjectId}-${AWS::AccountId}-aoss-collection"
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - aoss:APIAccessAll
+                  - aoss:BatchGetCollection
+                Resource: !Sub "arn:aws:aoss:${AWS::Region}:${AWS::AccountId}:collection/${ChatbotCollection}"
+        # Scoped S3 access to Documents + Code buckets
+        - PolicyName: !Sub "${ProjectId}-${AWS::AccountId}-s3-access-restricted"
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                Resource:
+                  - !Sub "arn:aws:s3:::${ChatbotDocumentsBucket}/*"
+                  - !Sub "arn:aws:s3:::${ChatbotCodeBucket}/*"
+              - Effect: Allow
+                Action:
+                  - s3:ListBucket
+                Resource:
+                  - !GetAtt ChatbotDocumentsBucket.Arn
+
+  # IAM Role for the Bedrock Knowledge Base
+  ChatbotKnowledgeBaseRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${ProjectId}-${AWS::AccountId}-knowledgebase-role"
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: bedrock.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: !Sub "${ProjectId}-${AWS::AccountId}-bedrock-kb-policy"
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: 
+                  - bedrock:InvokeModel
+                Resource: '*'
+              - Effect: Allow
+                Action: 
+                  - aoss:APIAccessAll
+                Resource: '*'
+              - Effect: Allow
+                Action: 
+                  - s3:ListBucket
+                Resource: !GetAtt ChatbotDocumentsBucket.Arn
+              - Effect: Allow
+                Action: 
+                  - s3:GetObject
+                Resource: !Sub "${ChatbotDocumentsBucket.Arn}/*"
+
+  # === (5) Lambda Functions === #
+  # Lambda function to create the vector index
+  ChatbotLambdaFunctionCreateIndex:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${ProjectId}-${AWS::AccountId}-createindexlambda" 
+      Description: Lambda function to create OpenSearch index and configure it
+      Handler: index.lambda_handler 
+      Role: !GetAtt ChatbotCollectionManagementRole.Arn
+      Code:
+        S3Bucket: !Sub "${ProjectId}-deployer-${AWS::AccountId}-${AWS::Region}" #################### mapped to deployer bucket
+        S3Key: index_lambda.zip
+      Runtime: python3.11
+      Timeout: 90
+      TracingConfig:
+        Mode: Active
+      Environment:
+        Variables:
+          COLLECTION_NAME: !Sub "${ProjectId}-${AWS::AccountId}-collection"
+          INDEX_NAME: !Sub "${ProjectId}-${AWS::AccountId}-index"
+      Layers:
+        - !Ref ChatbotBaseDependencyLayer
+        - !Ref ChatbotCustomModulesLayer
+
+  # Lambda function to generates the answer
+  ChatbotLambdaAnswer:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${ProjectId}-${AWS::AccountId}-eassistant"
+      Handler: aws_answer_question.lambda_answer_question 
+      Role: !GetAtt ChatbotLambdaRole.Arn
+      Code:
+        S3Bucket: !Sub "${ProjectId}-deployer-${AWS::AccountId}-${AWS::Region}" #################### mapped to deployer bucket
+        S3Key: ask_lambda.zip
+      Runtime: python3.11
+      Timeout: 90
+      TracingConfig:
+        Mode: Active
+      Layers:
+        - !Ref ChatbotBaseDependencyLayer
+        - !Ref ChatbotCustomModulesLayer
+      AutoPublishAlias: live
+      Environment:
+        Variables:
+          aoss_collection_id: !Ref ChatbotCollection
+          aoss_vector_field_name: "bedrock-knowledge-base-default-vector"
+          aoss_open_search_ndx: !Sub "${ProjectId}-${AWS::AccountId}-index"
+          aoss_ndx_custom_fields: "[]"
+          aws_s3_bucket_name: !Ref ChatbotDocumentsBucket
+          aws_region: !Sub "${AWS::Region}"
+          config_file_path: "/opt/python/config/config.json"
+
+  # Lambda Alias with provisioned concurrency
+  ChatbotLambdaAlias:
+    Type: AWS::Lambda::Alias
+    Properties:
+      Name: live
+      FunctionName: !Ref ChatbotLambdaAnswer
+      FunctionVersion: !GetAtt ChatbotLambdaAnswer.Version
+      Description: Alias with provisioned concurrency for faster cold starts
+      ProvisionedConcurrentExecutions: 3
+
+  # API Gateway definition
+  ChatbotApi:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: !Sub "${ProjectId}-HTTP-API"
+      ProtocolType: HTTP
+      CorsConfiguration:
+        AllowOrigins:
+          - "*"
+        AllowMethods:
+          - "GET"
+        AllowHeaders:
+          - "*"
+        MaxAge: 86400
+
+  # API Gateway: Integration
+  ChatbotIntegrationAnswer:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref ChatbotApi
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${ChatbotLambdaAnswer}:live
+      PayloadFormatVersion: "2.0"
+
+  # API Gateway: Route
+  ChatbotRouteAnswer:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref ChatbotApi
+      RouteKey: GET /eassistant
+      Target: !Sub integrations/${ChatbotIntegrationAnswer}
+
+  # API Gateway: Stage
+  ChatbotStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      ApiId: !Ref ChatbotApi
+      StageName: default
+      AutoDeploy: true
+
+  # Lambda function Trigger
+  ChatbotLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Sub "${ChatbotLambdaAnswer}:live"
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ChatbotApi}/*/GET/eassistant
+
+  # CloudFront OAC for code bucket
+  ChatbotCloudFrontOACCode:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: !Sub "${ProjectId}-code-bucket-OAC"
+        Description: "Access control for S3 bucket from CloudFront"
+        SigningBehavior: always
+        SigningProtocol: sigv4
+        OriginAccessControlOriginType: s3
+
+  # CloudFront OAC for documents bucket
+  ChatbotCloudFrontOACDocuments:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: !Sub "${ProjectId}-documents-bucket-OAC"
+        Description: "Access control for S3 bucket from CloudFront"
+        SigningBehavior: always
+        SigningProtocol: sigv4
+        OriginAccessControlOriginType: s3
+
+  # CloudFront Distribution definition
+  ChatbotCloudFrontDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        DefaultRootObject: 'index.html'
+        Origins:
+          - DomainName: !Sub "${ChatbotApi}.execute-api.${AWS::Region}.amazonaws.com"
+            Id: ApiOrigin
+            CustomOriginConfig:
+              HTTPPort: 80
+              HTTPSPort: 443
+              OriginProtocolPolicy: https-only
+          - DomainName: !Sub "${ChatbotCodeBucket}.s3.${AWS::Region}.amazonaws.com"
+            Id: S3Code
+            S3OriginConfig: {}
+            OriginAccessControlId: !Ref ChatbotCloudFrontOACCode
+          - DomainName: !Sub "${ChatbotDocumentsBucket}.s3.${AWS::Region}.amazonaws.com"
+            Id: S3Documents
+            S3OriginConfig: {}
+            OriginAccessControlId: !Ref ChatbotCloudFrontOACDocuments
+        DefaultCacheBehavior:
+          TargetOriginId: ApiOrigin
+          ViewerProtocolPolicy: redirect-to-https
+          CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad
+          OriginRequestPolicyId: b689b0a8-53d0-40ab-baf2-68738e2966ac
+
+  # Policy for CloudFront to access S3 code bucket
+  ChatbotCloudFrontCodeBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref ChatbotCodeBucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: AllowCloudFrontServicePrincipal
+            Effect: Allow
+            Principal:
+              Service: "cloudfront.amazonaws.com"
+            Action:
+              - "s3:GetObject"
+            Resource:
+              - !Sub "arn:aws:s3:::${ChatbotCodeBucket}/*"
+            Condition: 
+              StringEquals:
+                AWS:SourceArn: !Sub "arn:aws:cloudfront::${AWS::AccountId}:distribution/${ChatbotCloudFrontDistribution}"
+
+  # Policy for CloudFront to access
+  ChatbotCloudFrontDocumentsBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref ChatbotDocumentsBucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: AllowCloudFrontServicePrincipal
+            Effect: Allow
+            Principal:
+              Service: "cloudfront.amazonaws.com"
+            Action:
+              - "s3:GetObject"
+            Resource:
+              - !Sub "arn:aws:s3:::${ChatbotDocumentsBucket}/*"
+            Condition: 
+              StringEquals:
+                AWS:SourceArn: !Sub "arn:aws:cloudfront::${AWS::AccountId}:distribution/${ChatbotCloudFrontDistribution}"
+
+Outputs:
+  # S3 Buckets
+  DocumentsBucketName:
+    Description: Name of the S3 bucket for document storage
+    Value: !Ref ChatbotDocumentsBucket
+
+  CodeBucketName:
+    Description: Name of the S3 bucket containing Lambda code and frontend assets
+    Value: !Ref ChatbotCodeBucket
+
+  # Lambda
+  LambdaAnswerName:
+    Description: Name of the main answering Lambda function
+    Value: !Ref ChatbotLambdaAnswer
+
+  # API Gateway
+  ApiUrl:
+    Description: URL of the deployed API Gateway
+    Value: !Sub "https://${ChatbotApi}.execute-api.${AWS::Region}.amazonaws.com/default/eassistant"
+
+  # CloudFront
+  CloudFrontDistributionDomainName:
+    Description: CloudFront distribution domain
+    Value: !GetAtt ChatbotCloudFrontDistribution.DomainName
+
+  # OpenSearch
+  OpenSearchCollectionName:
+    Description: Name of the AOSS collection
+    Value: !Ref ChatbotCollection
+
+  # Bedrock Knowledge Base
+  KnowledgeBaseName:
+    Description: Name of the Bedrock Knowledge Base
+    Value: !Ref ChatbotKnowledgeBase

@@ -1,0 +1,514 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Archibot OpenSearch Serverless Collection with Bedrock DataSource and Lambda Integration
+
+Parameters:
+  IAMUserArn: 
+    Type: String
+    Description: ARN of the IAM user or role deploying this stack.
+    Default: arn:aws:iam::047493842081:role/aws-reserved/sso.amazonaws.com/eu-west-1/AWSReservedSSO_AWSAdministratorAccess_15c95dd3c9aada76
+
+  ProjectId: 
+    Type: String
+    Description: ENTER THE PREVIOUSLY USED PROJECT ID.
+    AllowedPattern: "^[a-z0-9]{1,8}$"
+    ConstraintDescription: "The parameter must be 3 to 8 alphanumeric characters in lower case."
+
+  CodeBucketName:
+    Type: String
+    Description: Name of the S3 bucket containing Lambda code and dependencies.
+    Default: ENTER THE CODE BUCKET NAME PREVIOUSLY CREATED
+  
+  DocumentsBucketName:
+    Type: String
+    Description: Name of the S3 bucket for document storage.
+    Default: ENTER THE DOCUMENTS BUCKET NAME PREVIOUSLY CREATED
+
+Resources:
+  # Lambda Layer for Dependencies
+  ArchibotLambdaDependencyLayer:
+    Type: AWS::Lambda::LayerVersion
+    Properties:
+      LayerName: !Sub "${ProjectId}-${AWS::AccountId}-lambdadependencylayer"
+      Content:
+        S3Bucket: !Ref CodeBucketName
+        S3Key: ask-the-docs-dependencies-v9.6.1.zip
+      CompatibleRuntimes:
+        - python3.11
+        - python3.12
+      Description: Layer containing dependencies for Lambda functions
+
+  # IAM Role for Lambda to manage OpenSearch Collection
+  ArchibotLambdaCollectionManagementRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${ProjectId}-${AWS::AccountId}-lambdacollectionmanagementrole"
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+
+  # IAM Policy for OpenSearch management
+  ArchibotCollectionManagementPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: !Sub "${ProjectId}-${AWS::AccountId}-collectionmanagementpolicy"
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - aoss:ListCollections
+              - aoss:BatchGetCollection
+              - aoss:CreateCollection
+              - aoss:CreateSecurityPolicy
+              - aoss:GetSecurityPolicy
+              - aoss:ListSecurityPolicies
+              - aoss:CreateAccessPolicy
+              - aoss:GetAccessPolicy
+              - aoss:ListAccessPolicies
+              - aoss:APIAccessAll
+              - aoss:DashboardsAccessAll
+              - aoss:CreateIndex
+            Resource: '*'
+          - Effect: Allow
+            Action:
+              - s3:GetObject
+              - logs:CreateLogGroup
+              - logs:CreateLogStream
+              - logs:PutLogEvents
+            Resource: '*'
+      Roles:
+        - !Ref ArchibotLambdaCollectionManagementRole
+
+  # Lambda Function for creating and managing OpenSearch index
+  ArchibotLambdaFunctionCreateIndexWithLayer:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${ProjectId}-${AWS::AccountId}-createindexlambda"
+      Handler: index.lambda_handler
+      Role: !GetAtt ArchibotLambdaCollectionManagementRole.Arn
+      Code:
+        S3Bucket: !Ref CodeBucketName
+        S3Key: ask-the-docs-code-v9.6.1.zip
+      Runtime: python3.12
+      Timeout: 90
+      Layers:
+        - !Ref ArchibotLambdaDependencyLayer
+      Environment:
+        Variables:
+          COLLECTION_NAME: !Sub "${ProjectId}-${AWS::AccountId}-collection"
+          INDEX_NAME: !Sub "${ProjectId}-${AWS::AccountId}-index"
+
+  # IAM Role for Bedrock Knowledge Base with permissions
+  ArchibotKnowledgeBaseIAMRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${ProjectId}-${AWS::AccountId}-Knowledgebaserole"
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: bedrock.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: !Sub "${ProjectId}-${AWS::AccountId}-kwbspolicy"
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: 
+                 - bedrock:InvokeModel
+                Resource: !Sub arn:aws:bedrock:${AWS::Region}::foundation-model/amazon.titan-embed-text-v2:0
+              - Effect: Allow
+                Action: 
+                 - aoss:APIAccessAll
+                Resource: '*'
+              - Effect: Allow
+                Action: 
+                 - s3:ListBucket
+                Resource: !Sub arn:aws:s3:::${DocumentsBucketName}
+              - Effect: Allow
+                Action: 
+                 - s3:GetObject
+                Resource: !Sub arn:aws:s3:::${DocumentsBucketName}/*
+    DependsOn: ArchibotLambdaFunctionCreateIndexWithLayer                
+
+  # OpenSearch Encryption Policy
+  ArchibotEncryptionPolicy:
+    Type: AWS::OpenSearchServerless::SecurityPolicy
+    Properties:
+      Name: !Sub "${ProjectId}-${AWS::AccountId}-encrpolicy"
+      Type: encryption
+      Policy: !Sub '{"Rules":[{"ResourceType":"collection","Resource":["collection/${ProjectId}-${AWS::AccountId}-collection"]}],"AWSOwnedKey":true}'
+      Description: Encryption policy for ArchibotCollection
+
+  # OpenSearch Network Access Policy
+  ArchibotNetworkAccessPolicy:
+    Type: AWS::OpenSearchServerless::SecurityPolicy
+    Properties:
+      Name: !Sub "${ProjectId}-${AWS::AccountId}-netwpolicy"
+      Type: network
+      Policy: !Sub '[{"Rules":[{"ResourceType":"dashboard","Resource":["collection/${ProjectId}-${AWS::AccountId}-collection"]},{"ResourceType":"collection","Resource":["collection/${ProjectId}-${AWS::AccountId}-collection"]}],"AllowFromPublic":true}]'
+      Description: Network access policy for ArchibotCollection
+
+  # OpenSearch Data Access Policy
+  ArchibotDataAccessPolicy:
+    Type: AWS::OpenSearchServerless::AccessPolicy
+    Properties:
+      Name: !Sub "${ProjectId}-${AWS::AccountId}-datapolicy"
+      Type: data
+      Policy: !Sub |-
+        [{"Rules":[{"ResourceType":"collection","Resource":["collection/${ProjectId}-${AWS::AccountId}-collection"],"Permission":["aoss:CreateCollectionItems","aoss:UpdateCollectionItems","aoss:DescribeCollectionItems"]},
+                   {"ResourceType":"index","Resource":["index/${ProjectId}-${AWS::AccountId}-collection/*"],"Permission":["aoss:CreateIndex","aoss:DeleteIndex","aoss:UpdateIndex","aoss:DescribeIndex","aoss:ReadDocument","aoss:WriteDocument"]}],
+          "Principal": ["arn:aws:iam::${AWS::AccountId}:role/${ProjectId}-${AWS::AccountId}-execute-lambda","${IAMUserArn}","${ArchibotLambdaCollectionManagementRole.Arn}","arn:aws:iam::${AWS::AccountId}:role/${ProjectId}-${AWS::AccountId}-Knowledgebaserole"],
+          "Description": "Data access policy for ArchibotCollection"}]
+
+  # OpenSearch Collection Resource
+  ArchibotCollection:
+    Type: AWS::OpenSearchServerless::Collection
+    Properties:
+      Name: !Sub "${ProjectId}-${AWS::AccountId}-collection"
+      Type: VECTORSEARCH
+      Description: OpenSearch collection for vector search
+    DependsOn: ArchibotEncryptionPolicy
+
+  # Custom Resource for invoking Lambda
+  ArchibotInvokeLambda:
+    Type: Custom::InvokeLambda
+    Properties:
+      ServiceToken: !GetAtt ArchibotLambdaFunctionCreateIndexWithLayer.Arn
+      CollectionName: !Ref ArchibotCollection
+    DependsOn: ArchibotLambdaFunctionCreateIndexWithLayer      
+
+  # Bedrock Knowledge Base with OpenSearch as data source
+  ArchibotKnowledgeBaseWithAoss:
+    Type: AWS::Bedrock::KnowledgeBase
+    Properties:
+      Name: !Sub "${ProjectId}-${AWS::AccountId}-knbaseaoss"
+      RoleArn: !GetAtt ArchibotKnowledgeBaseIAMRole.Arn
+      Description: Knowledge Base with vector search
+      KnowledgeBaseConfiguration:
+        Type: VECTOR
+        VectorKnowledgeBaseConfiguration:
+          EmbeddingModelArn: !Sub arn:${AWS::Partition}:bedrock:${AWS::Region}::foundation-model/amazon.titan-embed-text-v2:0
+      StorageConfiguration:
+        Type: OPENSEARCH_SERVERLESS
+        OpensearchServerlessConfiguration:
+          CollectionArn: !GetAtt ArchibotCollection.Arn
+          VectorIndexName: !Sub "${ProjectId}-${AWS::AccountId}-index"
+          FieldMapping:
+            VectorField: bedrock-knowledge-base-default-vector
+            TextField: AMAZON_BEDROCK_TEXT_CHUNK
+            MetadataField: AMAZON_BEDROCK_METADATA
+    DependsOn: ArchibotInvokeLambda            
+
+  # Bedrock DataSource connected to S3 Bucket
+  ArchibotBedrockDataSource:
+    Type: AWS::Bedrock::DataSource
+    Properties:
+      Name: !Sub "${ProjectId}-${AWS::AccountId}-datasource"
+      Description: Data source from S3 bucket for Bedrock
+      KnowledgeBaseId: !GetAtt ArchibotKnowledgeBaseWithAoss.KnowledgeBaseId
+      DataSourceConfiguration:
+        Type: S3
+        S3Configuration:
+          BucketArn: !Sub arn:aws:s3:::${DocumentsBucketName}
+
+  ArchibotExecuteLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${ProjectId}-${AWS::AccountId}-execute-lambda"
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: !Sub "${ProjectId}-${AWS::AccountId}-BedrockInvokePolicy"
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - bedrock:InvokeModel
+                Resource:
+                  - !Sub "arn:aws:bedrock:${AWS::Region}::foundation-model/amazon.titan-embed-text-v2:0"
+                  - !Sub "arn:aws:bedrock:${AWS::Region}::foundation-model/anthropic.claude-3-sonnet-20240229-v1:0"
+                  - !Sub "arn:aws:bedrock:${AWS::Region}::foundation-model/anthropic.claude-3-5-sonnet-20240620-v1:0"
+                  - !Sub "arn:aws:bedrock:${AWS::Region}::foundation-model/cohere.rerank-v3-5:0"
+
+        - PolicyName: !Sub "${ProjectId}-${AWS::AccountId}-CloudWatchLogsPolicy"
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:*"
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${ProjectId}-${AWS::AccountId}-ask-the-docs-answer-question:*"
+
+        - PolicyName: !Sub "${ProjectId}-${AWS::AccountId}-OpenSearchAccessPolicy"
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - aoss:APIAccessAll
+                  - aoss:BatchGetCollection
+#                Resource: !Sub "arn:aws:aoss:${AWS::Region}:${AWS::AccountId}:collection/${ProjectId}-${AWS::AccountId}-collection"
+                Resource: !Sub "arn:aws:aoss:${AWS::Region}:${AWS::AccountId}:collection/${ArchibotCollection}"
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonS3FullAccess
+        
+  # Lambda Function for asnwering questions
+  ArchibotLambdaFunctionAnswerQuestion:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${ProjectId}-${AWS::AccountId}-ask-the-docs-answer-question"
+      Handler: aws_answer_question.lambda_answer_question
+      Role: !GetAtt ArchibotExecuteLambdaRole.Arn
+      Code:
+        S3Bucket: !Ref CodeBucketName
+        S3Key: ask-the-docs-code-v9.6.1.zip
+      Runtime: python3.11
+      Timeout: 90
+      Layers:
+        - !Ref ArchibotLambdaDependencyLayer
+      Environment:
+        Variables:
+          askthedocs_config_bucket: !Ref CodeBucketName
+          askthedocs_config_file: "config.json"
+          aoss_collection_id: !Ref ArchibotCollection
+          aoss_vector_field_name: "bedrock-knowledge-base-default-vector"
+          aoss_open_search_ndx: !Sub "${ProjectId}-${AWS::AccountId}-index"
+          aoss_ndx_custom_fields: "[]"
+          aws_s3_bucket_name: !Ref DocumentsBucketName
+          aws_region: !Sub ${AWS::Region}
+          ai_prompt_table_key: "prompt_info_table.csv"  
+    
+  # Lambda Function for asnwering questions
+  ArchibotLambdaFunctionRetrieveContext:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${ProjectId}-${AWS::AccountId}-ask-the-docs-retrieve-context"
+      Handler: aws_retrieve_context.lambda_retrieve_context
+      Role: !GetAtt ArchibotExecuteLambdaRole.Arn
+      Code:
+        S3Bucket: !Ref CodeBucketName
+        S3Key: ask-the-docs-code-v9.6.1.zip
+      Runtime: python3.11
+      Timeout: 90
+      Layers:
+        - !Ref ArchibotLambdaDependencyLayer
+      Environment:
+        Variables:
+          askthedocs_config_bucket: !Ref CodeBucketName
+          askthedocs_config_file: "config.json"
+          aoss_collection_id: !Ref ArchibotCollection
+          aoss_vector_field_name: "bedrock-knowledge-base-default-vector"
+          aoss_open_search_ndx: !Sub "${ProjectId}-${AWS::AccountId}-index"
+          aoss_ndx_custom_fields: "[]"
+          aws_s3_bucket_name: !Ref DocumentsBucketName
+          aws_region: !Sub ${AWS::Region}
+          ai_prompt_table_key: "prompt_info_table.csv" 
+
+  ArchibotApi:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: !Sub "${ProjectId}-HTTP-API"
+      ProtocolType: HTTP
+      CorsConfiguration:
+        AllowOrigins:
+          - "*"
+        AllowMethods:
+          - "GET"
+          - "POST"
+          - "PUT"
+          - "DELETE"
+          - "OPTIONS"
+        AllowHeaders:
+          - "*"
+        MaxAge: 86400
+      Description: API for ask-the-docs
+      #FailOnWarnings: true
+
+  ArchibotIntegrationAnswerQuestion:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref ArchibotApi
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${ProjectId}-${AWS::AccountId}-ask-the-docs-answer-question
+      PayloadFormatVersion: "2.0"
+
+  ArchibotIntegrationRetrieveContext:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref ArchibotApi
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${ProjectId}-${AWS::AccountId}-ask-the-docs-retrieve-context
+      PayloadFormatVersion: "2.0"
+
+  ArchibotRouteAnswerQuestion:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref ArchibotApi
+      RouteKey: ANY /ask-the-docs-answer-question
+      Target: !Sub integrations/${ArchibotIntegrationAnswerQuestion}
+
+  ArchibotRouteRetrieveContext:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref ArchibotApi
+      RouteKey: ANY /ask-the-docs-retrieve-context
+      Target: !Sub integrations/${ArchibotIntegrationRetrieveContext}
+
+  ArchibotStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      ApiId: !Ref ArchibotApi
+      StageName: default
+      AutoDeploy: true
+
+  ArchibotLambdaPermissionAnswerQuestion:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${ProjectId}-${AWS::AccountId}-ask-the-docs-answer-question
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ArchibotApi}/*/ANY/ask-the-docs-answer-question
+    DependsOn: ArchibotLambdaFunctionAnswerQuestion
+
+  ArchibotLambdaPermissionRetrieveContext:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${ProjectId}-${AWS::AccountId}-ask-the-docs-retrieve-context
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ArchibotApi}/*/ANY/ask-the-docs-retrieve-context
+    DependsOn: ArchibotLambdaFunctionRetrieveContext
+
+  CloudFrontOACCode:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: !Sub "${ProjectId}-code-bucket-OAC"
+        Description: "Access control for S3 bucket from CloudFront"
+        SigningBehavior: always
+        SigningProtocol: sigv4
+        OriginAccessControlOriginType: s3
+        
+  CloudFrontOACDocuments:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: !Sub "${ProjectId}-documents-bucket-OAC"
+        Description: "Access control for S3 bucket from CloudFront"
+        SigningBehavior: always
+        SigningProtocol: sigv4
+        OriginAccessControlOriginType: s3
+        
+  ArchibotCloudFrontDistributionAPI:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Origins:
+          - DomainName: !Sub ${ArchibotApi}.execute-api.${AWS::Region}.amazonaws.com
+            Id: ApiOrigin
+            CustomOriginConfig:
+              HTTPPort: 80
+              HTTPSPort: 443
+              OriginProtocolPolicy: https-only
+          - DomainName: !Sub "${ProjectId}-code-${AWS::AccountId}-${AWS::Region}.s3.${AWS::Region}.amazonaws.com"
+            Id: S3Code
+            S3OriginConfig: {}
+            OriginAccessControlId: !Ref CloudFrontOACCode
+          - DomainName: !Sub "${ProjectId}-documents-${AWS::AccountId}-${AWS::Region}.s3.${AWS::Region}.amazonaws.com"
+            Id: S3Documents
+            S3OriginConfig: {}
+            OriginAccessControlId: !Ref CloudFrontOACDocuments
+        DefaultRootObject: 'index.html'
+        Enabled: true
+        DefaultCacheBehavior:
+          TargetOriginId: ApiOrigin
+          ViewerProtocolPolicy: redirect-to-https
+          #CachingDisabled policy (Cache managed policies)
+          CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad
+          #AllViewerExceptHostHeader policy (Origin request managed policies)
+          OriginRequestPolicyId: b689b0a8-53d0-40ab-baf2-68738e2966ac
+
+  S3CodeBucketPolicy:
+    Type: "AWS::S3::BucketPolicy"
+    Properties:
+      Bucket: !Sub "${ProjectId}-code-${AWS::AccountId}-${AWS::Region}"
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: AllowCloudFrontServicePrincipal
+            Effect: Allow
+            Principal:
+              Service: "cloudfront.amazonaws.com"
+            Action:
+              - "s3:GetObject"
+            Resource:
+              - !Sub "arn:aws:s3:::${ProjectId}-code-${AWS::AccountId}-${AWS::Region}/*"
+            Condition: 
+              StringEquals:
+                AWS:SourceArn: !Sub "arn:aws:cloudfront::${AWS::AccountId}:distribution/${ArchibotCloudFrontDistributionAPI.Id}"          
+       
+  S3DocumentsBucketPolicy:
+    Type: "AWS::S3::BucketPolicy"
+    Properties:
+      Bucket: !Sub "${ProjectId}-documents-${AWS::AccountId}-${AWS::Region}"
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: AllowCloudFrontServicePrincipal
+            Effect: Allow
+            Principal:
+              Service: "cloudfront.amazonaws.com"
+            Action:
+              - "s3:GetObject"
+            Resource:
+              - !Sub "arn:aws:s3:::${ProjectId}-documents-${AWS::AccountId}-${AWS::Region}/*"
+            Condition: 
+              StringEquals:
+                AWS:SourceArn: !Sub "arn:aws:cloudfront::${AWS::AccountId}:distribution/${ArchibotCloudFrontDistributionAPI.Id}"          
+       
+Outputs:
+  ArchibotCollectionEndpoint:
+    Value: !GetAtt ArchibotCollection.CollectionEndpoint
+    Description: Endpoint for the OpenSearch collection
+
+  ArchibotCollectionArn:
+    Value: !GetAtt ArchibotCollection.Arn
+    Description: ARN of the OpenSearch collection
+
+  ArchibotKnowledgeBaseRoleArn:
+    Value: !GetAtt ArchibotKnowledgeBaseIAMRole.Arn
+    Description: ARN of the IAM role for Knowledge Base
+
+  ArchibotKnowledgeBaseWithAossId:
+    Value: !GetAtt ArchibotKnowledgeBaseWithAoss.KnowledgeBaseId
+    Description: ID of the Knowledge Base with OpenSearch
+    
+  ApiUrl:
+    Value: !Sub https://${ArchibotApi}.execute-api.${AWS::Region}.amazonaws.com/default/
+    Description: URL of the deployed API
+
+  ApiEndpoint:
+    Value: !GetAtt ArchibotApi.ApiEndpoint
+    Description: Endpoint of the deployed API
+    
+  ApiId:
+    Value: !GetAtt ArchibotCloudFrontDistributionAPI.Id
+    Description: Id of the deployed API

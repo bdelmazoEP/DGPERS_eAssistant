@@ -1,0 +1,86 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Create S3 buckets with access policies for Amazon Bedrock.
+
+Parameters:
+  ProjectId: 
+    Type: String
+    Description: The elements created will have names that begin with this ID. The parameter must be 3 to 8 alphanumeric characters in lower case. 
+    AllowedPattern: "^[a-z0-9]{1,8}$"
+    ConstraintDescription: "The parameter must be 3 to 8 alphanumeric characters in lower case."
+
+Resources:
+  # S3 bucket for documents
+  DocumentsBucket:
+    Type: "AWS::S3::Bucket"
+    Properties:
+      BucketName: !Sub "${ProjectId}-documents-${AWS::AccountId}-${AWS::Region}"
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  # Bucket policy for allowing Amazon Bedrock access to DocumentsBucket
+  S3DocumentsBucketPolicy:
+    Type: "AWS::S3::BucketPolicy"
+    Properties:
+      Bucket: !Ref DocumentsBucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: AllowAmazonBedrockAccess
+            Effect: Allow
+            Principal:
+              Service: "bedrock.amazonaws.com"
+            Action:
+              - "s3:GetObject"
+              - "s3:PutObject"
+              - "s3:ListBucket"
+            Resource:
+              - !Sub "arn:aws:s3:::${DocumentsBucket}/*"
+              - !Sub "arn:aws:s3:::${DocumentsBucket}"
+
+  # S3 bucket for code
+  CodeBucket:
+    Type: "AWS::S3::Bucket"
+    Properties:
+      BucketName: !Sub "${ProjectId}-code-${AWS::AccountId}-${AWS::Region}"
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  # Bucket policy for allowing Amazon Bedrock access to CodeBucket
+  S3CodeBucketPolicy:
+    Type: "AWS::S3::BucketPolicy"
+    Properties:
+      Bucket: !Ref CodeBucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: AllowCloudFrontServicePrincipal
+            Effect: Allow
+            Principal:
+              Service: "cloudfront.amazonaws.com"
+            Action:
+              - "s3:GetObject"
+            Resource:
+              - !Sub "arn:aws:s3:::${ProjectId}-code-${AWS::AccountId}-${AWS::Region}/*"
+            Condition: 
+              StringEquals:
+                AWS:SourceArn: "arn:aws:cloudfront::504098497448:distribution/EILKCRNYTY0WZ"
+
+Outputs:
+  DocumentsBucketName:
+    Description: "The name of the documents S3 bucket"
+    Value: !Ref DocumentsBucket
+  DocumentsBucketArn:
+    Description: "The ARN of the documents S3 bucket"
+    Value: !GetAtt DocumentsBucket.Arn
+  CodeBucketName:
+    Description: "The name of the code S3 bucket"
+    Value: !Ref CodeBucket
+  CodeBucketArn:
+    Description: "The ARN of the code S3 bucket"
+    Value: !GetAtt CodeBucket.Arn

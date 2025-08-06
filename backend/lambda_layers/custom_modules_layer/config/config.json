@@ -1,0 +1,59 @@
+{
+	"ai": {
+		"bedrock_model_generate": "anthropic.claude-3-5-sonnet-20240620-v1:0",
+		"bedrock_model_embed": "amazon.titan-embed-text-v2:0",
+		"bedrock_guardrail_id": "ygvmw9agg78p",
+		"bedrock_guardrail_version": "1",
+		"bedrock_helper_module": "ep_nlp.bedrock_helper",
+		"bedrock_helper_class": "BedrockHelper",
+		"documents_retriever_class": "KnowledgebaseDocumentsRetriever",
+		"documents_retriever_module": "kb_documents_retriever.knowledgebase_documents_retriever",
+		"context_formatter_class": "ClaudeContextFormatter",
+		"context_formatter_module": "ep_nlp.claude_context_formatter",
+		"prompt_table_key": "prompt_info_table.csv",
+		"prompt_template_id": "dgpers"},
+	"aoss": {
+		"collection_id": "5ejffcf32u1aetirzx2j",
+		"rerank_model_id": "cohere.rerank-v3-5:0",
+		"open_search_ndx": "bedrock-knowledge-base-default-index",
+		"ndx_custom_fields": [],
+		"ndx_custom_field_aliases": [
+			{
+				"name": "AMAZON_BEDROCK_TEXT_CHUNK",
+				"alias": "source"
+			}
+		],
+		"vector_field_name": "bedrock-knowledge-base-default-vector"
+	},
+	"aws": {
+		"s3_bucket_name": "Not used. Set via env variable",
+		"base_docs_url": "https://persas-documents-515966503650-eu-central-1.s3.eu-central-1.amazonaws.com/",
+		"base_s3_uri": "s3://persas1-documents-515966503650-eu-central-1/",
+		"base_url": " https://d3eft42xsj0mgt.cloudfront.net/default/",
+		"region": "eu-central-1"
+	},
+	"local": {
+		"documents_list_formatter_class": "GenericDocumentsListFormatter",
+		"documents_list_formatter_module": "ep_nlp.generic_documents_list_formatter",
+		"knowledgebase_id": "N5FYBQYTFZ",
+		"knowledgebase_search_type": "HYBRID",
+		"knowledgebase_number_of_results": 8
+	},
+	"prompt_templates": {
+		"answer_question": {
+			"request": {"system": "$system$", "anthropic_version": "bedrock-2023-05-31","max_tokens": 4096,"temperature": 0,"messages": [{"role": "user","content": "$prompt$"}]},
+			"system": "Response References: When generating an answer, explicitly reference the relevant document(s) by indicating their position in the list (e.g., Document 1). If multiple documents are relevant, list all applicable references.\\nToken Limit Compliance: Ensure the response stays within the 2048-token limit, skipping any tokens that would exceed this boundary.\\nHandling Insufficient Information: If the search results lack the information needed to answer the question, clearly state that you are not able to answer.\\n\\nLanguage Consistency: If the question  is not in English translate it to English before answering. Once you have found the anwers translate it back, if needed. {0}.",
+			"prompt": "You are a question answering agent. I will provide you with a set of search results. The user will provide you with a question. Your job is to answer the user's question using only information from the search results. These are the search results in numbered order:<search_results>{0}</search_results>\\n and this is the question of the user:  <question>{1}</question> \\n "
+		},
+		"analyze_query": {
+			"request": {"anthropic_version": "bedrock-2023-05-31","max_tokens": 4096,"temperature": 0,"messages": [{"role": "user","content": "$prompt$"}]},
+			"system": "Ignore this",
+			"prompt": "<task>\\nExamine the given query for a RAG (Retrieval-Augmented Generation) application. Extract the instructions, the estimated final objective of the query, and the search elements present in the query. Return the answer formatted as a JSON structure with the following keys:\\n\\n<keys>\\n'query_target_type': Final target typeof the query. Type values:'summary', 'document_list', 'anwer'\\n'inferred_instructions': The instructions or task description inferred from the query.\\n'search_elements': A List of Named Entities, key terms or phrases present in the query to be used for searching relevant information.\\n</keys>\\n\\n</task>\\n\\n<constraints>\\n1. Respond with the JSON structure accurately and concisely, without any additional explanations or preamble.\\n2. Ensure that the 'search_elements' list contains only relevant named entities, key terms, or phrases from the query, and does not include any stopwords or common words.\\n3. If the query does not contain any clear instructions or search elements, provide an empty list or string for the respective keys in the JSON output.\\n</constraints>\\n\\n<query>\\n{0}\\n</query>"
+		},
+		"get_query_intent": {
+			"request": {"anthropic_version": "bedrock-2023-05-31","max_tokens": 4096,"temperature": 0,"messages": [{"role": "user","content": "$prompt$"}]},
+			"system": "Ignore this",
+			"prompt": "<task>\\nExamine the given query for a RAG (Retrieval-Augmented Generation) application. Extract the estimated final objective of the query (intent) and rewrite the query as a clearer prompt. Return the answer formatted as a JSON structure with the following keys:\\n\\n<keys>\\n'intent': Final target typeof the query. It must be one of: 'summary', 'document_list', 'anwer'\\n'reformulated query': The new and clearer text of the query.\\n</keys>\\n\\n</task>\\n\\n<constraints>\\n1. Respond with the JSON structure accurately and concisely, without any additional explanations or preamble.\\n2. Make sure the reformulated_query is in the same language as the original input.\\n</constraints>\\n\\n<query>\\n{0}\\n</query>"
+		}
+	}
+}
