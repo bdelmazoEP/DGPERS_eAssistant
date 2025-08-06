@@ -16,7 +16,7 @@ jmespath==1.0.1
 langchain-aws==0.2.18
 langchain-core==0.3.51
 langsmith==0.3.28
-numpy==2.2.4
+numpy==1.26.4
 opensearch-py==2.8.0
 orjson==3.10.16
 packaging==24.2
@@ -41,3 +41,4 @@ tzdata==2025.2
 urllib3==2.3.0
 wrapt==1.17.2
 zstandard==0.23.0
+
