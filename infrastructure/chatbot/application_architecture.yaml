@@ -104,7 +104,19 @@ Resources:
         S3Key: base_layer.zip 
       CompatibleRuntimes:
         - python3.11
-      Description: Standard Python packages
+      Description: Standard Python packages (part 1)
+
+  # Lambda base2 layer definition (layer was too big, had to split)
+  ChatbotBaseDependencyLayer2:
+    Type: AWS::Lambda::LayerVersion
+    Properties:
+      LayerName: !Sub "${ProjectId}-${AWS::AccountId}-base-dependency-layer2"
+      Content:
+        S3Bucket: !Sub "${ProjectId}-deployer-${AWS::AccountId}-${AWS::Region}"
+        S3Key: base2_layer.zip
+      CompatibleRuntimes:
+        - python3.11
+      Description: Standard Python packages (part 2)
 
   # Lambda custom layer definition
   ChatbotCustomModulesLayer:
@@ -376,6 +388,7 @@ Resources:
           INDEX_NAME: !Sub "${ProjectId}-${AWS::AccountId}-index"
       Layers:
         - !Ref ChatbotBaseDependencyLayer
+        - !Ref ChatbotBaseDependencyLayer2
         - !Ref ChatbotCustomModulesLayer
 
   # Lambda function to generates the answer
@@ -394,6 +407,7 @@ Resources:
         Mode: Active
       Layers:
         - !Ref ChatbotBaseDependencyLayer
+        - !Ref ChatbotBaseDependencyLayer2
         - !Ref ChatbotCustomModulesLayer
       Environment:
         Variables:
