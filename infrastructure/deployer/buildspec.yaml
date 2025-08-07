@@ -68,6 +68,13 @@ phases:
         aws lambda invoke --function-name "$INDEX_LAMBDA_NAME" response.json
         cat response.json
 
+      - echo "Defining provisioned concurrency for Lambda alias..."
+      - |
+        aws lambda put-provisioned-concurrency-config \
+        --function-name "${PROJECT_ID}-${ACCOUNT_ID}-eassistant" \
+        --qualifier live \
+        --provisioned-concurrent-executions 3
+
       - echo "Registering concurrency autoscaling schedule..."
       - |
         LAMBDA_ALIAS="${PROJECT_ID}-${ACCOUNT_ID}-eassistant:live"
@@ -97,6 +104,7 @@ phases:
 artifacts:
   files:
     - '**/*'
+
 
 
 
