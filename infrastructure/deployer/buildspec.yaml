@@ -34,11 +34,11 @@ phases:
       - cd build/layers/custom && zip -r ../../custom_layer.zip . && cd $CODE_ROOT
 
       - echo "Zipping Lambda functions..."
-      - zip -r ask_lambda.zip backend/lambda_functions/aws_answer_question.py 
-      - zip -r index_lambda.zip backend/lambda_functions/aws_generate_index.py 
+      - zip -r build/ask_lambda.zip backend/lambda_functions/aws_answer_question.py 
+      - zip -r build/index_lambda.zip backend/lambda_functions/aws_generate_index.py 
 
       - echo "Zipping frontend assets..."
-      - zip -r frontend.zip frontend/*
+      - zip -r build/frontend.zip frontend/*
 
       - echo "Uploading to deploy bucket..."
       - aws s3 cp build/base_layer.zip s3://$DEPLOY_BUCKET/
@@ -94,6 +94,7 @@ phases:
 artifacts:
   files:
     - '**/*'
+
 
 
 
