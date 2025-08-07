@@ -279,7 +279,7 @@ Resources:
   ChatbotEncryptionPolicy:
     Type: AWS::OpenSearchServerless::SecurityPolicy
     Properties:
-      Name: !Sub "${ProjectId}-${AWS::AccountId}-encryption-policy"
+      Name: !Sub "${ProjectId}-${AWS::AccountId}-encryp"
       Type: encryption
       Policy: !Sub |
         {
@@ -296,7 +296,7 @@ Resources:
   ChatbotNetworkAccessPolicy:
     Type: AWS::OpenSearchServerless::SecurityPolicy
     Properties:
-      Name: !Sub "${ProjectId}-${AWS::AccountId}-network-policy"
+      Name: !Sub "${ProjectId}-${AWS::AccountId}-network"
       Type: network
       Policy: !Sub |
         [
@@ -319,7 +319,7 @@ Resources:
   ChatbotDataAccessPolicy:
     Type: AWS::OpenSearchServerless::AccessPolicy
     Properties:
-      Name: !Sub "${ProjectId}-${AWS::AccountId}-data-access-policy"
+      Name: !Sub "${ProjectId}-${AWS::AccountId}-data-po"
       Type: data
       Policy: !Sub |
         [
@@ -396,7 +396,6 @@ Resources:
       Layers:
         - !Ref ChatbotBaseDependencyLayer
         - !Ref ChatbotCustomModulesLayer
-      AutoPublishAlias: live
       Environment:
         Variables:
           aoss_collection_id: !Ref ChatbotCollection
@@ -407,15 +406,24 @@ Resources:
           aws_region: !Sub "${AWS::Region}"
           config_file_path: "/opt/python/config/config.json"
 
+  # Lambda Version (needed explicitly for the alias)
+  ChatbotLambdaVersion:
+    Type: AWS::Lambda::Version
+    Properties:
+      FunctionName: !Ref ChatbotLambdaAnswer
+      Description: Version published for alias use
+
+
   # Lambda Alias with provisioned concurrency
   ChatbotLambdaAlias:
     Type: AWS::Lambda::Alias
     Properties:
       Name: live
       FunctionName: !Ref ChatbotLambdaAnswer
-      FunctionVersion: !GetAtt ChatbotLambdaAnswer.Version
+      FunctionVersion: !GetAtt ChatbotLambdaVersion.Version
       Description: Alias with provisioned concurrency for faster cold starts
       ProvisionedConcurrentExecutions: 3
+
 
   # === (7) API Gateway === #
   # API Gateway definition
