@@ -41,11 +41,11 @@ phases:
       - zip -r frontend.zip frontend/*
 
       - echo "Uploading to deploy bucket..."
-      - aws s3 cp base_layer.zip s3://$DEPLOY_BUCKET/
-      - aws s3 cp custom_layer.zip s3://$DEPLOY_BUCKET/
-      - aws s3 cp ask_lambda.zip s3://$DEPLOY_BUCKET/
-      - aws s3 cp index_lambda.zip s3://$DEPLOY_BUCKET/
-      - aws s3 cp frontend.zip s3://$DEPLOY_BUCKET/
+      - aws s3 cp build/base_layer.zip s3://$DEPLOY_BUCKET/
+      - aws s3 cp build/custom_layer.zip s3://$DEPLOY_BUCKET/
+      - aws s3 cp build/ask_lambda.zip s3://$DEPLOY_BUCKET/
+      - aws s3 cp build/index_lambda.zip s3://$DEPLOY_BUCKET/
+      - aws s3 cp build/frontend.zip s3://$DEPLOY_BUCKET/
       # - aws s3 cp config/config.json s3://$DEPLOY_BUCKET/config/config.json || true
       # - aws s3 cp config/rerank_data.csv s3://$DEPLOY_BUCKET/config/rerank_data.csv || true
 
@@ -94,4 +94,5 @@ phases:
 artifacts:
   files:
     - '**/*'
+
 
