@@ -58,7 +58,9 @@ phases:
           --stack-name "${PROJECT_ID}-eassistant-stack" \
           --template-file infrastructure/chatbot/application_architecture.yaml \
           --capabilities CAPABILITY_NAMED_IAM \
-          --parameter-overrides ProjectId=${PROJECT_ID}
+          --parameter-overrides ProjectId=${PROJECT_ID} \
+          --no-fail-on-empty-changeset \
+          --debug
 
       - echo "Invoking indexing Lambda..."
       - |
@@ -95,6 +97,7 @@ phases:
 artifacts:
   files:
     - '**/*'
+
 
 
 
