@@ -22,12 +22,29 @@ phases:
       - export CODE_ROOT=$(pwd)
 
       - mkdir -p build
+      - mkdir -p build/layers/full/python
       - mkdir -p build/layers/base/python
-      
+      - mkdir -p build/layers/base2/python
+
       - echo "Installing dependencies for base_dependency_layer (requirements.txt)..."
-      - pip install -r backend/lambda_layers/base_dependency_layer/requirements.txt -t build/layers/base/python
-      - echo "Installing dependencies for base_dependency_layer2 (requirements2.txt)..."
-      - pip install -r backend/lambda_layers/base_dependency_layer/requirements2.txt -t build/layers/base2/python
+      - pip install -r backend/lambda_layers/base_dependency_layer/requirements.txt -t build/layers/full/python
+
+      - echo "Splitting base dependencies based on size"
+      - |
+        base_size=0
+        base2_size=0
+        for pkg in $(du -s build/layers/full/python/* | sort -nr | awk '{print $2}'); do
+          size=$(du -s "$pkg" | awk '{print $1}')
+          if [ $base_size -le $base2_size ]; then
+            mv "$pkg" build/layers/base/python/
+            base_size=$((base_size + size))
+          else
+            mv "$pkg" build/layers/base2/python/
+            base2_size=$((base2_size + size))
+          fi
+        done
+
+      - echo "Fetching custom modules..."
       - mkdir -p build/layers/custom/python
       - cp -r backend/lambda_layers/custom_modules_layer/* build/layers/custom/python/
 
@@ -109,6 +126,7 @@ phases:
 artifacts:
   files:
     - '**/*'
+
 
 
 
