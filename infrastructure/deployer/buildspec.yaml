@@ -55,7 +55,7 @@ phases:
       - |
         aws cloudformation deploy \
           --stack-name "${PROJECT_ID}-eassistant-stack" \
-          --template-file infrastructure/chatbot/application_architecture.yaml \ 
+          --template-file infrastructure/chatbot/application_architecture.yaml \
           --capabilities CAPABILITY_NAMED_IAM \
           --parameter-overrides ProjectId=${PROJECT_ID}
 
@@ -94,5 +94,6 @@ phases:
 artifacts:
   files:
     - '**/*'
+
 
 
