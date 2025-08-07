@@ -21,10 +21,13 @@ phases:
       - cd source
       - export CODE_ROOT=$(pwd)
 
-      - echo "Installing layer dependencies..."
       - mkdir -p build
       - mkdir -p build/layers/base/python
+      
+      - echo "Installing dependencies for base_dependency_layer (requirements.txt)..."
       - pip install -r backend/lambda_layers/base_dependency_layer/requirements.txt -t build/layers/base/python
+      - echo "Installing dependencies for base_dependency_layer2 (requirements2.txt)..."
+      - pip install -r backend/lambda_layers/base_dependency_layer/requirements2.txt -t build/layers/base2/python
       - mkdir -p build/layers/custom/python
       - cp -r backend/lambda_layers/custom_modules_layer/* build/layers/custom/python/
 
@@ -104,6 +107,7 @@ phases:
 artifacts:
   files:
     - '**/*'
+
 
 
 
