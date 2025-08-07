@@ -417,6 +417,7 @@ Resources:
       Description: Alias with provisioned concurrency for faster cold starts
       ProvisionedConcurrentExecutions: 3
 
+  # === (7) API Gateway === #
   # API Gateway definition
   ChatbotApi:
     Type: AWS::ApiGatewayV2::Api
@@ -466,6 +467,7 @@ Resources:
       Principal: apigateway.amazonaws.com
       SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ChatbotApi}/*/GET/eassistant
 
+  # === (8) CloudFront Distribution === #
   # CloudFront OAC for code bucket
   ChatbotCloudFrontOACCode:
     Type: AWS::CloudFront::OriginAccessControl
@@ -555,6 +557,29 @@ Resources:
             Condition: 
               StringEquals:
                 AWS:SourceArn: !Sub "arn:aws:cloudfront::${AWS::AccountId}:distribution/${ChatbotCloudFrontDistribution}"
+
+  # === (9) Knowledge Base === #
+  # Knowledge Base Definition
+  ChatbotKnowledgeBase:
+    Type: AWS::Bedrock::KnowledgeBase
+    Properties:
+      Name: !Sub "${ProjectId}-${AWS::AccountId}-knowledgebase"
+      RoleArn: !GetAtt ChatbotKnowledgeBaseRole.Arn
+      Description: Knowledge Base with vector search
+      KnowledgeBaseConfiguration:
+        Type: VECTOR
+        VectorKnowledgeBaseConfiguration:
+          EmbeddingModelArn: !Sub arn:${AWS::Partition}:bedrock:${AWS::Region}::foundation-model/amazon.titan-embed-text-v2:0
+      StorageConfiguration:
+        Type: OPENSEARCH_SERVERLESS
+        OpensearchServerlessConfiguration:
+          CollectionArn: !GetAtt ChatbotCollection.Arn
+          VectorIndexName: !Sub "${ProjectId}-${AWS::AccountId}-index"
+          FieldMapping:
+            VectorField: bedrock-knowledge-base-default-vector
+            TextField: AMAZON_BEDROCK_TEXT_CHUNK
+            MetadataField: AMAZON_BEDROCK_METADATA
+
 
 Outputs:
   # S3 Buckets
