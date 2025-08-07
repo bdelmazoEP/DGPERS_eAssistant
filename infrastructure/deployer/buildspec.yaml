@@ -35,6 +35,7 @@ phases:
     commands:
       - echo "Zipping Lambda layer artifacts..."
       - cd build/layers/base && zip -r ../../base_layer.zip . && cd $CODE_ROOT
+      - cd build/layers/base2 && zip -r ../../base2_layer.zip . && cd $CODE_ROOT
       - cd build/layers/custom && zip -r ../../custom_layer.zip . && cd $CODE_ROOT
 
       - echo "Zipping Lambda functions..."
@@ -107,6 +108,7 @@ phases:
 artifacts:
   files:
     - '**/*'
+
 
 
 
