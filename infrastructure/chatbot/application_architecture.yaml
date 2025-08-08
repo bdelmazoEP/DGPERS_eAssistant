@@ -333,29 +333,37 @@ Resources:
     Properties:
       Name: !Sub "${ProjectId}-${AWS::AccountId}-data-po"
       Type: data
-      Policy:
-        Version: "2012-10-17"
-        Statement:
-          - Effect: Allow
-            Principal:
-              - !Sub "arn:aws:iam::${AWS::AccountId}:role/${ProjectId}-${AWS::AccountId}-lambda-role"
-              - !Ref IAMUserArn
-              - !GetAtt ChatbotCollectionManagementRole.Arn
-              - !Sub "arn:aws:iam::${AWS::AccountId}:role/${ProjectId}-${AWS::AccountId}-knowledgebase-role"
-            Action:
-              - "aoss:CreateCollectionItems"
-              - "aoss:UpdateCollectionItems"
-              - "aoss:DescribeCollectionItems"
-              - "aoss:CreateIndex"
-              - "aoss:DeleteIndex"
-              - "aoss:UpdateIndex"
-              - "aoss:DescribeIndex"
-              - "aoss:ReadDocument"
-              - "aoss:WriteDocument"
-            Resource:
-              - !Sub "collection/${ProjectId}-${AWS::AccountId}-collection"
-              - !Sub "index/${ProjectId}-${AWS::AccountId}-collection/*"
-            Description: "Data access policy for ChatbotCollection"
+      Policy: !Sub |
+        {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": [
+                "arn:aws:iam::${AWS::AccountId}:role/${ProjectId}-${AWS::AccountId}-lambda-role",
+                "${IAMUserArn}",
+                "${ChatbotCollectionManagementRole.Arn}",
+                "arn:aws:iam::${AWS::AccountId}:role/${ProjectId}-${AWS::AccountId}-knowledgebase-role"
+              ],
+              "Action": [
+                "aoss:CreateCollectionItems",
+                "aoss:UpdateCollectionItems",
+                "aoss:DescribeCollectionItems",
+                "aoss:CreateIndex",
+                "aoss:DeleteIndex",
+                "aoss:UpdateIndex",
+                "aoss:DescribeIndex",
+                "aoss:ReadDocument",
+                "aoss:WriteDocument"
+              ],
+              "Resource": [
+                "collection/${ProjectId}-${AWS::AccountId}-collection",
+                "index/${ProjectId}-${AWS::AccountId}-collection/*"
+              ],
+              "Description": "Data access policy for ChatbotCollection"
+            }
+          ]
+        }
 
   # AOSS Collection definition
   ChatbotCollection:
