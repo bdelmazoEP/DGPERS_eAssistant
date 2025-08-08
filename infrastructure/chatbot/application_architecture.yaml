@@ -13,7 +13,8 @@ Parameters:
   IAMUserArn:
     Type: String
     Description: ARN of the IAM user or role deploying this stack.
-    Default: !Sub "arn:aws:iam::${AWS::AccountId}:role/aws-reserved/sso.amazonaws.com/eu-west-1/AWSReservedSSO_AWSAdministratorAccess_c3f2807c610a3632"  ###################
+    ################# vvv
+    Default: arn:aws:iam::515966503650:role/aws-reserved/sso.amazonaws.com/eu-west-1/AWSReservedSSO_AWSAdministratorAccess_c3f2807c610a3632  
 
 Resources:
   # === (2) S3 Buckets === #
