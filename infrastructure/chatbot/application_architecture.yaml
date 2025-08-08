@@ -278,6 +278,10 @@ Resources:
               - Effect: Allow
                 Action: 
                   - aoss:APIAccessAll
+                  - aoss:CreateKnowledgeBase
+                  - aoss:UpdateKnowledgeBase
+                  - aoss:DeleteKnowledgeBase
+                  - aoss:DescribeKnowledgeBase
                 Resource: '*'
               - Effect: Allow
                 Action: 
