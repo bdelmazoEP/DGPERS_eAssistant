@@ -389,7 +389,7 @@ Resources:
     Properties:
       FunctionName: !Sub "${ProjectId}-${AWS::AccountId}-createindexlambda" 
       Description: Lambda function to create OpenSearch index and configure it
-      Handler: index.lambda_handler 
+      Handler: aws_generate_index.lambda_handler 
       Role: !GetAtt ChatbotCollectionManagementRole.Arn
       Code:
         S3Bucket: !Sub "${ProjectId}-deployer-${AWS::AccountId}-${AWS::Region}" #################### mapped to deployer bucket
