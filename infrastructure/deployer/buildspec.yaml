@@ -83,7 +83,6 @@ phases:
           --parameter-overrides ProjectId=${PROJECT_ID} \
           --no-fail-on-empty-changeset
 
-        ####################### separate KB creation
       - echo "Retrieving main stack outputs..."
       - |
         COLLECTION_ARN=$(aws cloudformation describe-stacks \
@@ -149,6 +148,7 @@ phases:
 artifacts:
   files:
     - '**/*'
+
 
 
 
