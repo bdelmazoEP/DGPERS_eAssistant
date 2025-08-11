@@ -107,7 +107,7 @@ phases:
           ProjectId=$PROJECT_ID \
           OpenSearchCollectionArn=$COLLECTION_ARN \
           KnowledgeBaseRoleArn=$KB_ROLE_ARN \
-        --capabilities CAPABILITY_NAMED_IAM
+        --capabilities CAPABILITY_NAMED_IAM \
         --no-fail-on-empty-changeset \
         --debug
       ############################# remove debug ^^^
@@ -154,6 +154,7 @@ phases:
 artifacts:
   files:
     - '**/*'
+
 
 
 
