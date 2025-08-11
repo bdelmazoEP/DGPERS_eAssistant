@@ -1,0 +1,46 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Deployment of Knowledge Base. Separate stack because Vector Index cannot be created by CFN and KB depends on index.
+
+# === (1) Parameters === #
+Parameters:
+  ProjectId:
+    Type: String
+    Description: The elements created will have names that begin with this ID. The parameter must be 3 to 8 alphanumeric characters in lower case.
+    AllowedPattern: "^[a-z0-9]{1,8}$"
+    ConstraintDescription: "The parameter must be 3 to 8 alphanumeric characters in lower case."
+  
+  OpenSearchCollectionArn:
+    Type: String
+    Description: ARN of the AOSS Collection created in previous step.
+  
+  KnowledgeBaseRoleArn:
+    Type: String
+    Description: ARN of the IAM Role for the KB to be created in this stack.
+  
+  # IAMUserArn:
+  #   Type: String
+  #   Description: ARN of the IAM user or role deploying this stack.
+  #   ################# vvv
+  #   Default: arn:aws:iam::515966503650:role/aws-reserved/sso.amazonaws.com/eu-west-1/AWSReservedSSO_AWSAdministratorAccess_c3f2807c610a3632
+
+Resources:
+  # Knowledge Base Definition
+  ChatbotKnowledgeBase:
+    Type: AWS::Bedrock::KnowledgeBase
+    Properties:
+      Name: !Sub "${ProjectId}-${AWS::AccountId}-knowledgebase"
+      RoleArn: !Ref KnowledgeBaseRoleArn
+      Description: Knowledge Base with vector search
+      KnowledgeBaseConfiguration:
+        Type: VECTOR
+        VectorKnowledgeBaseConfiguration:
+          EmbeddingModelArn: !Sub arn:${AWS::Partition}:bedrock:${AWS::Region}::foundation-model/amazon.titan-embed-text-v2:0
+      StorageConfiguration:
+        Type: OPENSEARCH_SERVERLESS
+        OpensearchServerlessConfiguration:
+          CollectionArn: !Ref OpenSearchCollectionArn
+          VectorIndexName: !Sub "${ProjectId}-${AWS::AccountId}-index"
+          FieldMapping:
+            VectorField: bedrock-knowledge-base-default-vector
+            TextField: AMAZON_BEDROCK_TEXT_CHUNK
+            MetadataField: AMAZON_BEDROCK_METADATA
