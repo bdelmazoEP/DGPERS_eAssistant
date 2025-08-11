@@ -442,14 +442,13 @@ Resources:
       FunctionName: !Ref ChatbotLambdaAnswer
       Description: Version published for alias use
 
-
   # Lambda Alias with provisioned concurrency
   ChatbotLambdaAlias:
     Type: AWS::Lambda::Alias
     Properties:
       Name: live
       FunctionName: !Ref ChatbotLambdaAnswer
-      FunctionVersion: !GetAtt ChatbotLambdaVersion.Version
+      FunctionVersion: !Ref ChatbotLambdaVersion
       Description: Alias pointing to the live version
     DependsOn: ChatbotLambdaVersion
 
@@ -507,7 +506,7 @@ Resources:
   ChatbotLambdaPermission:
     Type: AWS::Lambda::Permission
     Properties:
-      FunctionName: !Sub "${ChatbotLambdaAnswer}:live"
+      FunctionName: !Ref ChatbotLambdaAlias
       Action: lambda:InvokeFunction
       Principal: apigateway.amazonaws.com
       SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ChatbotApi}/*/GET/eassistant
