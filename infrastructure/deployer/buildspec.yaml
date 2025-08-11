@@ -100,7 +100,7 @@ phases:
 
       - echo "Invoking indexing Lambda..."
       - |
-        aws lambda invoke --function-name "${PROJECT_ID}-${ACCOUNT_ID}-createindexlambda" response.json
+        aws lambda invoke --function-name "${PROJECT_ID}-${ACCOUNT_ID}-createindexlambda" response.json --cli-read-timeout 240
         cat response.json
         
       - |
@@ -149,6 +149,7 @@ phases:
 artifacts:
   files:
     - '**/*'
+
 
 
 
