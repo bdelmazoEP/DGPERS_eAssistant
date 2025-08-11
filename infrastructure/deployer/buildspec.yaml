@@ -82,7 +82,9 @@ phases:
           --capabilities CAPABILITY_NAMED_IAM \
           --parameter-overrides ProjectId=${PROJECT_ID} \
           --no-fail-on-empty-changeset \
+          --disable-rollback \
           --debug
+      ###################### Remove --debug and --disable-rollback ^^^
 
         ####################### separate KB creation
       - echo "Retrieving main stack outputs..."
@@ -151,6 +153,7 @@ phases:
 artifacts:
   files:
     - '**/*'
+
 
 
 
