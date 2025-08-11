@@ -113,8 +113,7 @@ phases:
 
       - echo "Invoking indexing Lambda..."
       - |
-        INDEX_LAMBDA_NAME="${PROJECT_ID}-${ACCOUNT_ID}-createindexlambda" 
-        aws lambda invoke --function-name "$INDEX_LAMBDA_NAME" response.json
+        aws lambda invoke --function-name "${PROJECT_ID}-${ACCOUNT_ID}-createindexlambda" response.json
         cat response.json
 
       - echo "Defining provisioned concurrency for Lambda alias..."
@@ -153,6 +152,7 @@ phases:
 artifacts:
   files:
     - '**/*'
+
 
 
 
