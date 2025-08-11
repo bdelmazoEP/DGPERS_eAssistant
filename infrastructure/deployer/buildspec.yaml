@@ -88,25 +88,25 @@ phases:
       - echo "Retrieving main stack outputs..."
       - |
         COLLECTION_ARN=$(aws cloudformation describe-stacks \
-        --stack-name "${PROJECT_ID}-eassistant-stack" \
-        --query "Stacks[0].Outputs[?OutputKey=='OpenSearchCollectionArn'].OutputValue" \
-        --output text)
+          --stack-name "${PROJECT_ID}-eassistant-stack" \
+          --query "Stacks[0].Outputs[?OutputKey=='OpenSearchCollectionArn'].OutputValue" \
+          --output text)
       - |
         KB_ROLE_ARN=$(aws cloudformation describe-stacks \
-        --stack-name "${PROJECT_ID}-eassistant-stack" \
-        --query "Stacks[0].Outputs[?OutputKey=='KnowledgeBaseRoleArn'].OutputValue" \
-        --output text)
+          --stack-name "${PROJECT_ID}-eassistant-stack" \
+          --query "Stacks[0].Outputs[?OutputKey=='KnowledgeBaseRoleArn'].OutputValue" \
+          --output text)
       - echo "Collection ARN: $COLLECTION_ARN"
       - echo "KB Role ARN: $KB_ROLE_ARN"
       - echo "Deploying KB stack..."
       - |
         aws cloudformation deploy \
-        --stack-name KnowledgeBaseStack \
-        --template-file infrastructure/chatbot/knowledge_base.yaml \
-        --parameter-overrides ProjectId=$PROJECT_ID OpenSearchCollectionArn=$COLLECTION_ARN KnowledgeBaseRoleArn=$KB_ROLE_ARN \
-        --capabilities CAPABILITY_NAMED_IAM \
-        --no-fail-on-empty-changeset \
-        --debug
+          --stack-name KnowledgeBaseStack \
+          --template-file infrastructure/chatbot/knowledge_base.yaml \
+          --parameter-overrides ProjectId=$PROJECT_ID OpenSearchCollectionArn=$COLLECTION_ARN KnowledgeBaseRoleArn=$KB_ROLE_ARN \
+          --capabilities CAPABILITY_NAMED_IAM \
+          --no-fail-on-empty-changeset \
+          --debug
       ############################# remove debug ^^^
 
       - echo "Invoking indexing Lambda..."
@@ -151,6 +151,7 @@ phases:
 artifacts:
   files:
     - '**/*'
+
 
 
 
