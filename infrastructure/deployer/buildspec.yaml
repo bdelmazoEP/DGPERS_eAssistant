@@ -103,10 +103,7 @@ phases:
         aws cloudformation deploy \
         --stack-name KnowledgeBaseStack \
         --template-file infrastructure/chatbot/knowledge_base.yaml \
-        --parameter-overrides \
-        ProjectId=$PROJECT_ID \
-        OpenSearchCollectionArn=$COLLECTION_ARN \
-        KnowledgeBaseRoleArn=$KB_ROLE_ARN \
+        --parameter-overrides ProjectId=$PROJECT_ID OpenSearchCollectionArn=$COLLECTION_ARN KnowledgeBaseRoleArn=$KB_ROLE_ARN \
         --capabilities CAPABILITY_NAMED_IAM \
         --no-fail-on-empty-changeset \
         --debug
@@ -154,6 +151,7 @@ phases:
 artifacts:
   files:
     - '**/*'
+
 
 
 
