@@ -77,36 +77,36 @@ phases:
       - echo "Deploying eAssistant stack..."
       - |
         aws cloudformation deploy \
-        --stack-name "${PROJECT_ID}-eassistant-stack" \
-        --template-file infrastructure/chatbot/application_architecture.yaml \
-        --capabilities CAPABILITY_NAMED_IAM \
-        --parameter-overrides ProjectId=${PROJECT_ID} \
-        --no-fail-on-empty-changeset \
-        --debug
+          --stack-name "${PROJECT_ID}-eassistant-stack" \
+          --template-file infrastructure/chatbot/application_architecture.yaml \
+          --capabilities CAPABILITY_NAMED_IAM \
+          --parameter-overrides ProjectId=${PROJECT_ID} \
+          --no-fail-on-empty-changeset \
+          --debug
 
         ####################### separate KB creation
       - echo "Retrieving main stack outputs..."
       - |
         COLLECTION_ARN=$(aws cloudformation describe-stacks \
-        --stack-name "${PROJECT_ID}-eassistant-stack" \
-        --query "Stacks[0].Outputs[?OutputKey=='OpenSearchCollectionArn'].OutputValue" \
-        --output text)
+          --stack-name "${PROJECT_ID}-eassistant-stack" \
+          --query "Stacks[0].Outputs[?OutputKey=='OpenSearchCollectionArn'].OutputValue" \
+          --output text)
       - |
         KB_ROLE_ARN=$(aws cloudformation describe-stacks \
-        --stack-name "${PROJECT_ID}-eassistant-stack" \
-        --query "Stacks[0].Outputs[?OutputKey=='KnowledgeBaseRoleArn'].OutputValue" \
-        --output text)
-      - echo "Collection ARN: $COLLECTION_ARN"
-      - echo "KB Role ARN: $KB_ROLE_ARN"
+          --stack-name "${PROJECT_ID}-eassistant-stack" \
+          --query "Stacks[0].Outputs[?OutputKey=='KnowledgeBaseRoleArn'].OutputValue" \
+          --output text)
+      - echo "Collection ARN; $COLLECTION_ARN"
+      - echo "KB Role ARN; $KB_ROLE_ARN"
       - echo "Deploying KB stack..."
       - |
         aws cloudformation deploy \
-        --stack-name KnowledgeBaseStack \
-        --template-file infrastructure/chatbot/knowledge_base.yaml \
-        --parameter-overrides ProjectId=$PROJECT_ID OpenSearchCollectionArn=$COLLECTION_ARN KnowledgeBaseRoleArn=$KB_ROLE_ARN \
-        --capabilities CAPABILITY_NAMED_IAM \
-        --no-fail-on-empty-changeset \
-        --debug
+          --stack-name KnowledgeBaseStack \
+          --template-file infrastructure/chatbot/knowledge_base.yaml \
+          --parameter-overrides ProjectId=$PROJECT_ID OpenSearchCollectionArn=$COLLECTION_ARN KnowledgeBaseRoleArn=$KB_ROLE_ARN \
+          --capabilities CAPABILITY_NAMED_IAM \
+          --no-fail-on-empty-changeset \
+          --debug
       ############################# remove debug ^^^
 
       - echo "Invoking indexing Lambda..."
@@ -118,39 +118,40 @@ phases:
       - echo "Defining provisioned concurrency for Lambda alias..."
       - |
         aws lambda put-provisioned-concurrency-config \
-        --function-name "${PROJECT_ID}-${ACCOUNT_ID}-eassistant" \
-        --qualifier live \
-        --provisioned-concurrent-executions 3
+          --function-name "${PROJECT_ID}-${ACCOUNT_ID}-eassistant" \
+          --qualifier live \
+          --provisioned-concurrent-executions 3
 
       - echo "Registering concurrency autoscaling schedule..."
       - |
         LAMBDA_ALIAS="${PROJECT_ID}-${ACCOUNT_ID}-eassistant:live"
         aws application-autoscaling register-scalable-target \
-        --service-namespace lambda \
-        --resource-id function:${LAMBDA_ALIAS} \
-        --scalable-dimension lambda:function:ProvisionedConcurrency \
-        --min-capacity 0 \
-        --max-capacity 3
+          --service-namespace lambda \
+          --resource-id function:${LAMBDA_ALIAS} \
+          --scalable-dimension lambda:function:ProvisionedConcurrency \
+          --min-capacity 0 \
+          --max-capacity 3
 
         aws application-autoscaling put-scheduled-action \
-        --scheduled-action-name "EnableConcurrencyOfficeHours" \
-        --service-namespace lambda \
-        --resource-id function:${LAMBDA_ALIAS} \
-        --scalable-dimension lambda:function:ProvisionedConcurrency \
-        --schedule "cron(0 6 ? * MON-FRI *)" \
-        --scalable-target-action MinCapacity=3,MaxCapacity=3
+          --scheduled-action-name "EnableConcurrencyOfficeHours" \
+          --service-namespace lambda \
+          --resource-id function:${LAMBDA_ALIAS} \
+          --scalable-dimension lambda:function:ProvisionedConcurrency \
+          --schedule "cron(0 6 ? * MON-FRI *)" \
+          --scalable-target-action MinCapacity=3,MaxCapacity=3
 
         aws application-autoscaling put-scheduled-action \
-        --scheduled-action-name "DisableConcurrencyAfterHours" \
-        --service-namespace lambda \
-        --resource-id function:${LAMBDA_ALIAS} \
-        --scalable-dimension lambda:function:ProvisionedConcurrency \
-        --schedule "cron(0 16 ? * MON-FRI *)" \
-        --scalable-target-action MinCapacity=0,MaxCapacity=0
+          --scheduled-action-name "DisableConcurrencyAfterHours" \
+          --service-namespace lambda \
+          --resource-id function:${LAMBDA_ALIAS} \
+          --scalable-dimension lambda:function:ProvisionedConcurrency \
+          --schedule "cron(0 16 ? * MON-FRI *)" \
+          --scalable-target-action MinCapacity=0,MaxCapacity=0
 
 artifacts:
   files:
     - '**/*'
+
 
 
 
