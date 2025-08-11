@@ -449,7 +449,7 @@ Resources:
     Properties:
       Name: live
       FunctionName: !Ref ChatbotLambdaAnswer
-      FunctionVersion: !GetAtt ChatbotLambdaAnswer.Version
+      FunctionVersion: !Ref ChatbotLambdaVersion
       Description: Alias pointing to the live version
     DependsOn: ChatbotLambdaVersion
 
