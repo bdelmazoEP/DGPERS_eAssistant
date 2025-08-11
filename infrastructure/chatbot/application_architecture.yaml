@@ -511,6 +511,7 @@ Resources:
       Action: lambda:InvokeFunction
       Principal: apigateway.amazonaws.com
       SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ChatbotApi}/*/GET/eassistant
+    DependsOn: ChatbotLambdaAlias
 
   # === (8) CloudFront Distribution === #
   # CloudFront OAC for code bucket
