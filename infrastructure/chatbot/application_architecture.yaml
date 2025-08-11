@@ -451,6 +451,7 @@ Resources:
       FunctionName: !Ref ChatbotLambdaAnswer
       FunctionVersion: !GetAtt ChatbotLambdaAnswer.Version
       Description: Alias pointing to the live version
+    DependsOn: ChatbotLambdaVersion
 
   # # Lambda Concurrency for the alias
   # ChatbotLambdaConcurrency:
