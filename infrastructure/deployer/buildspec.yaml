@@ -97,6 +97,12 @@ phases:
       - echo "Collection ARN; $COLLECTION_ARN"
       - echo "KB Role ARN; $KB_ROLE_ARN"
       - echo "Deploying KB stack..."
+
+      - echo "Invoking indexing Lambda..."
+      - |
+        aws lambda invoke --function-name "${PROJECT_ID}-${ACCOUNT_ID}-createindexlambda" response.json
+        cat response.json
+        
       - |
         aws cloudformation deploy \
           --stack-name KnowledgeBaseStack \
@@ -105,12 +111,7 @@ phases:
           --capabilities CAPABILITY_NAMED_IAM \
           --no-fail-on-empty-changeset \
           --debug
-      ############################# remove debug ^^^
-
-      - echo "Invoking indexing Lambda..."
-      - |
-        aws lambda invoke --function-name "${PROJECT_ID}-${ACCOUNT_ID}-createindexlambda" response.json
-        cat response.json
+      ############################# remove debug ^^
 
       - echo "Defining provisioned concurrency for Lambda alias..."
       - |
@@ -148,6 +149,7 @@ phases:
 artifacts:
   files:
     - '**/*'
+
 
 
 
