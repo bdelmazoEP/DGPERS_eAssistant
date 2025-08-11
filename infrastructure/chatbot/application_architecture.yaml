@@ -1,6 +1,5 @@
-# === Unified CloudFormation Template for PERS eAssistant ===
 AWSTemplateFormatVersion: '2010-09-09'
-Description: Unified Stack for deployment of a serverless Chatbot architecture, including API, CloudFront, Lambda functions, S3 buckets, and OpenSearch Serverless Collection.
+Description: Unified Stack for deployment of a serverless Chatbot architecture, including API, CloudFront, Lambda functions, S3 buckets, and OpenSearch Serverless Collection. Only the Knowledge Base cannot be created here and is handled by a separate stack.
 
 # === (1) Parameters === #
 Parameters:
@@ -604,27 +603,27 @@ Resources:
                 AWS:SourceArn: !Sub "arn:aws:cloudfront::${AWS::AccountId}:distribution/${ChatbotCloudFrontDistribution}"
 
   # === (9) Knowledge Base === #
-  # Knowledge Base Definition
-  ChatbotKnowledgeBase:
-    Type: AWS::Bedrock::KnowledgeBase
-    Properties:
-      Name: !Sub "${ProjectId}-${AWS::AccountId}-knowledgebase"
-      RoleArn: !GetAtt ChatbotKnowledgeBaseRole.Arn
-      Description: Knowledge Base with vector search
-      KnowledgeBaseConfiguration:
-        Type: VECTOR
-        VectorKnowledgeBaseConfiguration:
-          EmbeddingModelArn: !Sub arn:${AWS::Partition}:bedrock:${AWS::Region}::foundation-model/amazon.titan-embed-text-v2:0
-      StorageConfiguration:
-        Type: OPENSEARCH_SERVERLESS
-        OpensearchServerlessConfiguration:
-          CollectionArn: !GetAtt ChatbotCollection.Arn
-          VectorIndexName: !Sub "${ProjectId}-${AWS::AccountId}-index"
-          FieldMapping:
-            VectorField: bedrock-knowledge-base-default-vector
-            TextField: AMAZON_BEDROCK_TEXT_CHUNK
-            MetadataField: AMAZON_BEDROCK_METADATA
-    DependsOn: ChatbotCollection
+  # # Knowledge Base Definition
+  # ChatbotKnowledgeBase:
+  #   Type: AWS::Bedrock::KnowledgeBase
+  #   Properties:
+  #     Name: !Sub "${ProjectId}-${AWS::AccountId}-knowledgebase"
+  #     RoleArn: !GetAtt ChatbotKnowledgeBaseRole.Arn
+  #     Description: Knowledge Base with vector search
+  #     KnowledgeBaseConfiguration:
+  #       Type: VECTOR
+  #       VectorKnowledgeBaseConfiguration:
+  #         EmbeddingModelArn: !Sub arn:${AWS::Partition}:bedrock:${AWS::Region}::foundation-model/amazon.titan-embed-text-v2:0
+  #     StorageConfiguration:
+  #       Type: OPENSEARCH_SERVERLESS
+  #       OpensearchServerlessConfiguration:
+  #         CollectionArn: !GetAtt ChatbotCollection.Arn
+  #         VectorIndexName: !Sub "${ProjectId}-${AWS::AccountId}-index"
+  #         FieldMapping:
+  #           VectorField: bedrock-knowledge-base-default-vector
+  #           TextField: AMAZON_BEDROCK_TEXT_CHUNK
+  #           MetadataField: AMAZON_BEDROCK_METADATA
+  #   DependsOn: ChatbotCollection
 
 
 Outputs:
@@ -647,17 +646,21 @@ Outputs:
     Description: URL of the deployed API Gateway
     Value: !Sub "https://${ChatbotApi}.execute-api.${AWS::Region}.amazonaws.com/default/eassistant"
 
-  # CloudFront
+  # CloudFront Distribution
   CloudFrontDistributionDomainName:
     Description: CloudFront distribution domain
     Value: !GetAtt ChatbotCloudFrontDistribution.DomainName
 
-  # OpenSearch
+  # OpenSearch Collection
   OpenSearchCollectionName:
     Description: Name of the AOSS collection
     Value: !Ref ChatbotCollection
-
-  # Bedrock Knowledge Base
-  KnowledgeBaseName:
-    Description: Name of the Bedrock Knowledge Base
-    Value: !Ref ChatbotKnowledgeBase
+  # OpenSearch Collection ARN
+  OpenSearchCollectionArn:
+    Description: ARN of the AOSS collection
+    Value: !GetAtt ChatbotCollection.Arn
+  
+  # KB IAM Role ARN
+  KnowledgeBaseRoleArn:
+    Description: ARN of the IAM Role for the Knowledge Base
+    Value: !GetAtt ChatbotKnowledgeBaseRole.Arn
