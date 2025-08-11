@@ -36,7 +36,7 @@ Resources:
       PolicyDocument:
         Version: "2012-10-17"
         Statement:
-          # Statement 1: Allow Bedrock access
+          # Allow Bedrock access
           - Sid: AllowAmazonBedrockAccess
             Effect: Allow
             Principal:
@@ -49,7 +49,7 @@ Resources:
               - !Sub "arn:aws:s3:::${ChatbotDocumentsBucket}/*"
               - !Sub "arn:aws:s3:::${ChatbotDocumentsBucket}"
 
-          # Statement 2: Allow CloudFront access
+          # Allow CloudFront access
           - Sid: AllowCloudFrontServicePrincipal
             Effect: Allow
             Principal:
@@ -88,7 +88,7 @@ Resources:
             Action:
               - "s3:GetObject"
             Resource:
-              - !Sub "arn:aws:s3:::${ProjectId}-code-${AWS::AccountId}-${AWS::Region}/*"
+              - !Sub "arn:aws:s3:::${ChatbotCodeBucket}/*"
             Condition: 
               StringEquals:
                 AWS:SourceArn: !Sub "arn:aws:cloudfront::${AWS::AccountId}:distribution/${ChatbotCloudFrontDistribution.Id}"
@@ -562,46 +562,6 @@ Resources:
           ViewerProtocolPolicy: redirect-to-https
           CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad
           OriginRequestPolicyId: b689b0a8-53d0-40ab-baf2-68738e2966ac
-
-  # Policy for CloudFront to access S3 code bucket
-  ChatbotCloudFrontCodeBucketPolicy:
-    Type: AWS::S3::BucketPolicy
-    Properties:
-      Bucket: !Ref ChatbotCodeBucket
-      PolicyDocument:
-        Version: "2012-10-17"
-        Statement:
-          - Sid: AllowCloudFrontServicePrincipal
-            Effect: Allow
-            Principal:
-              Service: "cloudfront.amazonaws.com"
-            Action:
-              - "s3:GetObject"
-            Resource:
-              - !Sub "arn:aws:s3:::${ChatbotCodeBucket}/*"
-            Condition: 
-              StringEquals:
-                AWS:SourceArn: !Sub "arn:aws:cloudfront::${AWS::AccountId}:distribution/${ChatbotCloudFrontDistribution}"
-
-  # Policy for CloudFront to access
-  ChatbotCloudFrontDocumentsBucketPolicy:
-    Type: AWS::S3::BucketPolicy
-    Properties:
-      Bucket: !Ref ChatbotDocumentsBucket
-      PolicyDocument:
-        Version: "2012-10-17"
-        Statement:
-          - Sid: AllowCloudFrontServicePrincipal
-            Effect: Allow
-            Principal:
-              Service: "cloudfront.amazonaws.com"
-            Action:
-              - "s3:GetObject"
-            Resource:
-              - !Sub "arn:aws:s3:::${ChatbotDocumentsBucket}/*"
-            Condition: 
-              StringEquals:
-                AWS:SourceArn: !Sub "arn:aws:cloudfront::${AWS::AccountId}:distribution/${ChatbotCloudFrontDistribution}"
 
   # === (9) Knowledge Base === #
   # # Knowledge Base Definition
