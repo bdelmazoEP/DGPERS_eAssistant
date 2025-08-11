@@ -278,10 +278,6 @@ Resources:
               - Effect: Allow
                 Action: 
                   - aoss:APIAccessAll
-                  - aoss:CreateKnowledgeBase
-                  - aoss:UpdateKnowledgeBase
-                  - aoss:DeleteKnowledgeBase
-                  - aoss:DescribeKnowledgeBase
                 Resource: '*'
               - Effect: Allow
                 Action: 
@@ -628,6 +624,7 @@ Resources:
             VectorField: bedrock-knowledge-base-default-vector
             TextField: AMAZON_BEDROCK_TEXT_CHUNK
             MetadataField: AMAZON_BEDROCK_METADATA
+    DependsOn: ChatbotCollection
 
 
 Outputs:
