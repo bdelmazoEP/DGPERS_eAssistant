@@ -9,7 +9,7 @@ import json
 
 import boto3
 import botocore.exceptions
-import awswrangler as wr
+# import awswrangler as wr
 
 class EpAthenaHelper:
     def __init__(
@@ -495,3 +495,4 @@ class EpAthenaHelper:
             df = None
 
         return df
+
