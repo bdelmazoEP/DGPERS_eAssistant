@@ -105,7 +105,7 @@ phases:
         
       - |
         aws cloudformation deploy \
-          --stack-name KnowledgeBaseStack \
+          --stack-name "${PROJECT_ID}-knowledgebase-stack" \
           --template-file infrastructure/chatbot/knowledge_base.yaml \
           --parameter-overrides ProjectId=$PROJECT_ID OpenSearchCollectionArn=$COLLECTION_ARN KnowledgeBaseRoleArn=$KB_ROLE_ARN \
           --capabilities CAPABILITY_NAMED_IAM \
@@ -149,6 +149,7 @@ phases:
 artifacts:
   files:
     - '**/*'
+
 
 
 
