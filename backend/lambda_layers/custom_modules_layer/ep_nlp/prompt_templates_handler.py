@@ -77,5 +77,6 @@ class PromptTemplatesHandler(metaclass=PromptTemplatesHandlerMeta):
     def get_prompt_templates(self) -> pd.DataFrame:
         return self.prompt_templates
 
-askthedocs_prompt_templates = PromptTemplatesHandler()
-askthedocs_prompt_templates.set_prompt_templates(__read_csv__())
+# askthedocs_prompt_templates = PromptTemplatesHandler()
+
+# askthedocs_prompt_templates.set_prompt_templates(__read_csv__())
