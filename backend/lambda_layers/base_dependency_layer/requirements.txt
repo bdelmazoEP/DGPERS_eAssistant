@@ -18,6 +18,7 @@ numpy==1.26.4
 opensearch-py==2.8.0
 orjson==3.10.16
 packaging==24.2
+pandas==2.2.3
 psutil==7.0.0
 pydantic==2.11.7
 pydantic-core==2.33.2
@@ -37,4 +38,5 @@ tzdata==2025.2
 urllib3==2.3.0
 wrapt==1.17.2
 zstandard==0.23.0
+
 
