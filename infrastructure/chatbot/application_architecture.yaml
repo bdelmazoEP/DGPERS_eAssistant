@@ -61,6 +61,8 @@ Resources:
             Condition: 
               StringEquals:
                 AWS:SourceArn: !Sub "arn:aws:cloudfront::${AWS::AccountId}:distribution/${ChatbotCloudFrontDistribution.Id}"
+    DependsOn:
+      - ChatbotDocumentsBucket
 
   # Code bucket definition
   ChatbotCodeBucket:
@@ -92,6 +94,8 @@ Resources:
             Condition: 
               StringEquals:
                 AWS:SourceArn: !Sub "arn:aws:cloudfront::${AWS::AccountId}:distribution/${ChatbotCloudFrontDistribution.Id}"
+    DependsOn:
+      - ChatbotCodeBucket
 
   # === (3) Lambda Layers === #
   # Lambda base layer definition
