@@ -28,41 +28,41 @@ Resources:
         IgnorePublicAcls: true
         RestrictPublicBuckets: true
 
-  # Documents bucket policy
-  ChatbotDocumentsBucketPolicy:
-    Type: AWS::S3::BucketPolicy
-    Properties:
-      Bucket: !Ref ChatbotDocumentsBucket
-      PolicyDocument:
-        Version: "2012-10-17"
-        Statement:
-          # Allow Bedrock access
-          - Sid: AllowAmazonBedrockAccess
-            Effect: Allow
-            Principal:
-              Service: "bedrock.amazonaws.com"
-            Action:
-              - "s3:GetObject"
-              - "s3:PutObject"
-              - "s3:ListBucket"
-            Resource:
-              - !Sub "arn:aws:s3:::${ChatbotDocumentsBucket}/*"
-              - !Sub "arn:aws:s3:::${ChatbotDocumentsBucket}"
+  # # Documents bucket policy
+  # ChatbotDocumentsBucketPolicy:
+  #   Type: AWS::S3::BucketPolicy
+  #   Properties:
+  #     Bucket: !Ref ChatbotDocumentsBucket
+  #     PolicyDocument:
+  #       Version: "2012-10-17"
+  #       Statement:
+  #         # Allow Bedrock access
+  #         - Sid: AllowAmazonBedrockAccess
+  #           Effect: Allow
+  #           Principal:
+  #             Service: "bedrock.amazonaws.com"
+  #           Action:
+  #             - "s3:GetObject"
+  #             - "s3:PutObject"
+  #             - "s3:ListBucket"
+  #           Resource:
+  #             - !Sub "arn:aws:s3:::${ChatbotDocumentsBucket}/*"
+  #             - !Sub "arn:aws:s3:::${ChatbotDocumentsBucket}"
 
-          # Allow CloudFront access
-          - Sid: AllowCloudFrontServicePrincipal
-            Effect: Allow
-            Principal:
-              Service: "cloudfront.amazonaws.com"
-            Action:
-              - "s3:GetObject"
-            Resource:
-              - !Sub "arn:aws:s3:::${ProjectId}-documents-${AWS::AccountId}-${AWS::Region}/*"
-            Condition: 
-              StringEquals:
-                AWS:SourceArn: !Sub "arn:aws:cloudfront::${AWS::AccountId}:distribution/${ChatbotCloudFrontDistribution.Id}"
-    DependsOn:
-      - ChatbotDocumentsBucket
+  #         # Allow CloudFront access
+  #         - Sid: AllowCloudFrontServicePrincipal
+  #           Effect: Allow
+  #           Principal:
+  #             Service: "cloudfront.amazonaws.com"
+  #           Action:
+  #             - "s3:GetObject"
+  #           Resource:
+  #             - !Sub "arn:aws:s3:::${ProjectId}-documents-${AWS::AccountId}-${AWS::Region}/*"
+  #           Condition: 
+  #             StringEquals:
+  #               AWS:SourceArn: !Sub "arn:aws:cloudfront::${AWS::AccountId}:distribution/${ChatbotCloudFrontDistribution.Id}"
+  #   DependsOn:
+  #     - ChatbotDocumentsBucket
 
   # Code bucket definition
   ChatbotCodeBucket:
@@ -75,27 +75,27 @@ Resources:
         IgnorePublicAcls: true
         RestrictPublicBuckets: true
 
-  # Code bucket policy
-  ChatbotCodeBucketPolicy:
-    Type: AWS::S3::BucketPolicy
-    Properties:
-      Bucket: !Ref ChatbotCodeBucket
-      PolicyDocument:
-        Version: "2012-10-17"
-        Statement:
-          - Sid: AllowCloudFrontServicePrincipal
-            Effect: Allow
-            Principal:
-              Service: "cloudfront.amazonaws.com"
-            Action:
-              - "s3:GetObject"
-            Resource:
-              - !Sub "arn:aws:s3:::${ChatbotCodeBucket}/*"
-            Condition: 
-              StringEquals:
-                AWS:SourceArn: !Sub "arn:aws:cloudfront::${AWS::AccountId}:distribution/${ChatbotCloudFrontDistribution.Id}"
-    DependsOn:
-      - ChatbotCodeBucket
+  # # Code bucket policy
+  # ChatbotCodeBucketPolicy:
+  #   Type: AWS::S3::BucketPolicy
+  #   Properties:
+  #     Bucket: !Ref ChatbotCodeBucket
+  #     PolicyDocument:
+  #       Version: "2012-10-17"
+  #       Statement:
+  #         - Sid: AllowCloudFrontServicePrincipal
+  #           Effect: Allow
+  #           Principal:
+  #             Service: "cloudfront.amazonaws.com"
+  #           Action:
+  #             - "s3:GetObject"
+  #           Resource:
+  #             - !Sub "arn:aws:s3:::${ChatbotCodeBucket}/*"
+  #           Condition: 
+  #             StringEquals:
+  #               AWS:SourceArn: !Sub "arn:aws:cloudfront::${AWS::AccountId}:distribution/${ChatbotCloudFrontDistribution.Id}"
+  #   DependsOn:
+  #     - ChatbotCodeBucket
 
   # === (3) Lambda Layers === #
   # Lambda base layer definition
@@ -612,9 +612,11 @@ Outputs:
     Value: !Sub "https://${ChatbotApi}.execute-api.${AWS::Region}.amazonaws.com/default/eassistant"
 
   # CloudFront Distribution
-  CloudFrontDistributionDomainName:
-    Description: CloudFront distribution domain
-    Value: !GetAtt ChatbotCloudFrontDistribution.DomainName
+  CloudFrontDistributionId:
+    Description: CloudFront distribution ID
+    Value: !GetAtt ChatbotCloudFrontDistribution.Id 
+    Export:
+      Name: !Sub "${ProjectId}-CloudFrontDistributionId"
 
   # OpenSearch Collection
   OpenSearchCollectionName:
@@ -624,8 +626,12 @@ Outputs:
   OpenSearchCollectionArn:
     Description: ARN of the AOSS collection
     Value: !GetAtt ChatbotCollection.Arn
+    Export:
+      Name: !Sub "${ProjectId}-OpenSearchCollectionArn"
   
   # KB IAM Role ARN
   KnowledgeBaseRoleArn:
     Description: ARN of the IAM Role for the Knowledge Base
     Value: !GetAtt ChatbotKnowledgeBaseRole.Arn
+    Export:
+      Name: !Sub "${ProjectId}-KnowledgeBaseArn"
