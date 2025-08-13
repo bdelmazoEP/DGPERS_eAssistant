@@ -12,10 +12,12 @@ Parameters:
   OpenSearchCollectionArn:
     Type: String
     Description: ARN of the AOSS Collection created in previous step.
+    Default: !ImportValue "${ProjectId}-OpenSearchCollectionArn"
   
   KnowledgeBaseRoleArn:
     Type: String
     Description: ARN of the IAM Role for the KB to be created in this stack.
+    Default: !ImportValue "${ProjectId}-KnowledgeBaseArn"
   
   # IAMUserArn:
   #   Type: String
