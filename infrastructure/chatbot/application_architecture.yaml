@@ -210,7 +210,7 @@ Resources:
                   - bedrock:GetGuardrail
                   - bedrock:ApplyGuardrail
                   - bedrock:UpdateGuardrail
-                Resource: !Sub "arn:aws:bedrock:${AWS::Region}:${AWS::AccountId}::guardrail/*"
+                Resource: "*"
 
         # X-Ray
         - PolicyName: !Sub "${ProjectId}-${AWS::AccountId}-xray-trace"
