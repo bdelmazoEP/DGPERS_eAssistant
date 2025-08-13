@@ -84,46 +84,55 @@ phases:
           --parameter-overrides ProjectId=${PROJECT_ID} \
           --no-fail-on-empty-changeset
       
+      # Retrieving deployment outputs
+      - echo "Retrieving main stack outputs..."
+      - |
+        COLLECTION_ARN=$(aws cloudformation describe-stacks \
+          --stack-name "${PROJECT_ID}-eassistant-stack" \
+          --query "Stacks[0].Outputs[?OutputKey=='OpenSearchCollectionArn'].OutputValue" \
+          --output text)
+      - |
+        KB_ROLE_ARN=$(aws cloudformation describe-stacks \
+          --stack-name "${PROJECT_ID}-eassistant-stack" \
+          --query "Stacks[0].Outputs[?OutputKey=='KnowledgeBaseRoleArn'].OutputValue" \
+          --output text)
+      - |
+        CF_DISTRIBUTION_ID=$(aws cloudformation describe-stacks \
+          --stack-name "${PROJECT_ID}-eassistant-stack" \
+          --query "Stacks[0].Outputs[?OutputKey=='CloudFrontDistributionId'].OutputValue" \
+          --output text)
+      - echo "Collection ARN; $COLLECTION_ARN"
+      - echo "KB Role ARN; $KB_ROLE_ARN"
+      - echo "CF Distribution ID; $CF_DISTRIBUTION_ID"
+      
       # Bucket policy deployment (can break if not done separately)
       - |
         aws cloudformation deploy \
           --stack-name "${PROJECT_ID}-bucketpolicies-stack" \
           --template-file infrastructure/chatbot/bucket_policies.yaml \
-          --parameter-overrides ProjectId=$PROJECT_ID \
+          --parameter-overrides ProjectId=$PROJECT_ID CloudFrontDistributionId=$CF_DISTRIBUTION_ID \
           --capabilities CAPABILITY_NAMED_IAM \
           --no-fail-on-empty-changeset \
           --debug
       ############################# remove debug ^^^
 
+      # Lambda invocation to create Vector Index
       - echo "Invoking indexing Lambda..."
       - |
         aws lambda invoke --function-name "${PROJECT_ID}-${ACCOUNT_ID}-createindexlambda" response.json --cli-read-timeout 240
         cat response.json
-      
-      # - echo "Retrieving main stack outputs..."
-      # - |
-      #   COLLECTION_ARN=$(aws cloudformation describe-stacks \
-      #     --stack-name "${PROJECT_ID}-eassistant-stack" \
-      #     --query "Stacks[0].Outputs[?OutputKey=='OpenSearchCollectionArn'].OutputValue" \
-      #     --output text)
-      # - |
-      #   KB_ROLE_ARN=$(aws cloudformation describe-stacks \
-      #     --stack-name "${PROJECT_ID}-eassistant-stack" \
-      #     --query "Stacks[0].Outputs[?OutputKey=='KnowledgeBaseRoleArn'].OutputValue" \
-      #     --output text)
-      # - echo "Collection ARN; $COLLECTION_ARN"
-      # - echo "KB Role ARN; $KB_ROLE_ARN"
+
+      # Knowledge base deployment (separate because vector index must already exist)
       - echo "Deploying KB stack..."
       - |
         aws cloudformation deploy \
           --stack-name "${PROJECT_ID}-knowledgebase-stack" \
           --template-file infrastructure/chatbot/knowledge_base.yaml \
-          --parameter-overrides ProjectId=$PROJECT_ID \
+          --parameter-overrides ProjectId=$PROJECT_ID OpenSearchCollectionArn=$COLLECTION_ARN KnowledgeBaseRoleArn=$KB_ROLE_ARN \
           --capabilities CAPABILITY_NAMED_IAM \
           --no-fail-on-empty-changeset \
           --debug
       ############################# remove debug ^^^
-      ############################# omitted <<OpenSearchCollectionArn=$COLLECTION_ARN KnowledgeBaseRoleArn=$KB_ROLE_ARN>> from parameter-overrides ^^^
 
       - echo "Defining provisioned concurrency for Lambda alias..."
       - |
@@ -162,6 +171,7 @@ phases:
 artifacts:
   files:
     - '**/*'
+
 
 
 
