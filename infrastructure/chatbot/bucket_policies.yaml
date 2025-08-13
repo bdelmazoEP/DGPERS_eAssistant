@@ -11,7 +11,7 @@ Parameters:
   
   CloudFrontDistributionId:
     Type: String
-    Default: !ImportValue "${ProjectId}-CloudFrontDistributionId"
+    Description: The ID of the CloudFront Distribution created by the main stack.
   
 Resources:
   # Documents bucket policy
