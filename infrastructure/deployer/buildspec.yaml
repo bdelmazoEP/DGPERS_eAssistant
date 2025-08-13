@@ -87,6 +87,21 @@ phases:
       # Retrieving deployment outputs
       - echo "Retrieving main stack outputs..."
       - |
+        CODE_BUCKET_NAME=$(aws cloudformation describe-stacks \
+          --stack-name "${PROJECT_ID}-eassistant-stack" \
+          --query "Stacks[0].Outputs[?OutputKey=='CodeBucketName'].OutputValue" \
+          --output text)
+      - |
+        DOCUMENTS_BUCKET_NAME=$(aws cloudformation describe-stacks \
+          --stack-name "${PROJECT_ID}-eassistant-stack" \
+          --query "Stacks[0].Outputs[?OutputKey=='DocumentsBucketName'].OutputValue" \
+          --output text)
+      - |
+        CF_DISTRIBUTION_ID=$(aws cloudformation describe-stacks \
+          --stack-name "${PROJECT_ID}-eassistant-stack" \
+          --query "Stacks[0].Outputs[?OutputKey=='CloudFrontDistributionId'].OutputValue" \
+          --output text)
+      - |
         COLLECTION_ARN=$(aws cloudformation describe-stacks \
           --stack-name "${PROJECT_ID}-eassistant-stack" \
           --query "Stacks[0].Outputs[?OutputKey=='OpenSearchCollectionArn'].OutputValue" \
@@ -96,14 +111,31 @@ phases:
           --stack-name "${PROJECT_ID}-eassistant-stack" \
           --query "Stacks[0].Outputs[?OutputKey=='KnowledgeBaseRoleArn'].OutputValue" \
           --output text)
-      - |
-        CF_DISTRIBUTION_ID=$(aws cloudformation describe-stacks \
-          --stack-name "${PROJECT_ID}-eassistant-stack" \
-          --query "Stacks[0].Outputs[?OutputKey=='CloudFrontDistributionId'].OutputValue" \
-          --output text)
+      
+      - echo "Code Bucket Name; $CODE_BUCKET_NAME"
+      - echo "Documents Bucket Name; $DOCUMENTS_BUCKET_NAME"
+      - echo "CF Distribution ID; $CF_DISTRIBUTION_ID"
       - echo "Collection ARN; $COLLECTION_ARN"
       - echo "KB Role ARN; $KB_ROLE_ARN"
-      - echo "CF Distribution ID; $CF_DISTRIBUTION_ID"
+
+      # Forcibly delete any existing bucket policies, because they keep causing "already exists" conflicts
+      - |
+        for BUCKET in "$CODE_BUCKET_NAME" "$DOCUMENTS_BUCKET_NAME"; do
+            if aws s3api get-bucket-policy --bucket "$BUCKET" 2>/dev/null; then
+                echo "Deleting existing policy on $BUCKET"
+                aws s3api delete-bucket-policy --bucket "$BUCKET"
+            fi
+        done
+      # Triple check that the policies were deleted
+      - |
+        for BUCKET in "$CODE_BUCKET_NAME" "$DOCUMENTS_BUCKET_NAME"; do
+            if aws s3api get-bucket-policy --bucket "$BUCKET" >/dev/null 2>&1; then
+                echo "ERROR: Bucket policy on $BUCKET still exists after deletion!" >&2
+                exit 1
+            else
+                echo "Confirmed: $BUCKET has no policy."
+            fi
+        done
       
       # Bucket policy deployment (can break if not done separately)
       - |
@@ -171,6 +203,7 @@ phases:
 artifacts:
   files:
     - '**/*'
+
 
 
 
