@@ -1,0 +1,69 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Deployment of S3 Bucket Policies. Separate stack because S3 buckets sometimes cause "policy already exists" errors when the policies are defined in the same stack as the buckets themselves.
+
+# === (1) Parameters === #
+Parameters:
+  ProjectId:
+    Type: String
+    Description: The elements created will have names that begin with this ID. The parameter must be 3 to 8 alphanumeric characters in lower case.
+    AllowedPattern: "^[a-z0-9]{1,8}$"
+    ConstraintDescription: "The parameter must be 3 to 8 alphanumeric characters in lower case."
+  
+  CloudFrontDistributionId:
+    Type: String
+    Default: !ImportValue "${ProjectId}-CloudFrontDistributionId"
+  
+Resources:
+  # Documents bucket policy
+  ChatbotDocumentsBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Sub "${ProjectId}-documents-${AWS::AccountId}-${AWS::Region}"
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          # Allow Bedrock access
+          - Sid: AllowAmazonBedrockAccess
+            Effect: Allow
+            Principal:
+              Service: "bedrock.amazonaws.com"
+            Action:
+              - "s3:GetObject"
+              - "s3:PutObject"
+              - "s3:ListBucket"
+            Resource:
+              - !Sub "arn:aws:s3:::${ProjectId}-documents-${AWS::AccountId}-${AWS::Region}/*" 
+              - !Sub "arn:aws:s3:::${ProjectId}-documents-${AWS::AccountId}-${AWS::Region}" 
+
+          # Allow CloudFront access
+          - Sid: AllowCloudFrontServicePrincipal
+            Effect: Allow
+            Principal:
+              Service: "cloudfront.amazonaws.com"
+            Action:
+              - "s3:GetObject"
+            Resource:
+              - !Sub "arn:aws:s3:::${ProjectId}-documents-${AWS::AccountId}-${AWS::Region}/*"
+            Condition: 
+              StringEquals:
+                AWS:SourceArn: !Sub "arn:aws:cloudfront::${AWS::AccountId}:distribution/${CloudFrontDistributionId}" 
+
+  # Code bucket policy
+  ChatbotCodeBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Sub "${ProjectId}-code-${AWS::AccountId}-${AWS::Region}"
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: AllowCloudFrontServicePrincipal
+            Effect: Allow
+            Principal:
+              Service: "cloudfront.amazonaws.com"
+            Action:
+              - "s3:GetObject"
+            Resource:
+              - !Sub "arn:aws:s3:::${ProjectId}-code-${AWS::AccountId}-${AWS::Region}/*" 
+            Condition: 
+              StringEquals:
+                AWS:SourceArn: !Sub "arn:aws:cloudfront::${AWS::AccountId}:distribution/${CloudFrontDistributionId}" 
