@@ -107,7 +107,7 @@ Resources:
         S3Bucket: !Sub "${ProjectId}-deployer-${AWS::AccountId}-${AWS::Region}" #################### mapped to deployer bucket
         S3Key: base_layer.zip 
       CompatibleRuntimes:
-        - python3.11
+        - python3.12
       Description: Standard Python packages (part 1)
 
   # Lambda base2 layer definition (layer was too big, had to split)
@@ -119,7 +119,7 @@ Resources:
         S3Bucket: !Sub "${ProjectId}-deployer-${AWS::AccountId}-${AWS::Region}"
         S3Key: base2_layer.zip
       CompatibleRuntimes:
-        - python3.11
+        - python3.12
       Description: Standard Python packages (part 2)
 
   # Lambda custom layer definition
@@ -131,7 +131,7 @@ Resources:
         S3Bucket: !Sub "${ProjectId}-deployer-${AWS::AccountId}-${AWS::Region}" #################### mapped to deployer bucket
         S3Key: custom_layer.zip
       CompatibleRuntimes:
-        - python3.11
+        - python3.12
       Description: Custom NLP libraries and config files
 
   # === (4) IAM Roles === #
@@ -406,7 +406,7 @@ Resources:
       Code:
         S3Bucket: !Sub "${ProjectId}-deployer-${AWS::AccountId}-${AWS::Region}" #################### mapped to deployer bucket
         S3Key: index_lambda.zip
-      Runtime: python3.11
+      Runtime: python3.12
       Timeout: 90
       TracingConfig:
         Mode: Active
@@ -429,7 +429,7 @@ Resources:
       Code:
         S3Bucket: !Sub "${ProjectId}-deployer-${AWS::AccountId}-${AWS::Region}" #################### mapped to deployer bucket
         S3Key: ask_lambda.zip
-      Runtime: python3.11
+      Runtime: python3.12
       Timeout: 90
       TracingConfig:
         Mode: Active
@@ -446,6 +446,9 @@ Resources:
           aws_s3_bucket_name: !Ref ChatbotDocumentsBucket
           aws_region: !Sub "${AWS::Region}"
           config_file_path: "/opt/python/config/config.json"
+      ###################### adding snapstart for cold start performance
+      SnapStart: 
+        ApplyOn: PublishedVersions
 
   # Lambda Version (needed explicitly for the alias)
   ChatbotLambdaVersion:
@@ -454,7 +457,7 @@ Resources:
       FunctionName: !Ref ChatbotLambdaAnswer
       Description: Version published for alias use
 
-  # Lambda Alias with provisioned concurrency
+  # Lambda Alias for provisioned concurrency
   ChatbotLambdaAlias:
     Type: AWS::Lambda::Alias
     Properties:
