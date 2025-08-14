@@ -3,7 +3,7 @@ version: 0.2
 phases:
   install:
     runtime-versions:
-      python: 3.11
+      python: 3.12
     commands:
       - echo "Installing zip and AWS CLI v2..."
       - apt-get update && apt-get install -y zip unzip awscli
@@ -144,9 +144,7 @@ phases:
           --template-file infrastructure/chatbot/bucket_policies.yaml \
           --parameter-overrides ProjectId=$PROJECT_ID CloudFrontDistributionId=$CF_DISTRIBUTION_ID \
           --capabilities CAPABILITY_NAMED_IAM \
-          --no-fail-on-empty-changeset \
-          --debug
-      ############################# remove debug ^^^
+          --no-fail-on-empty-changeset 
 
       # Lambda invocation to create Vector Index
       - echo "Invoking indexing Lambda..."
@@ -162,47 +160,46 @@ phases:
           --template-file infrastructure/chatbot/knowledge_base.yaml \
           --parameter-overrides ProjectId=$PROJECT_ID OpenSearchCollectionArn=$COLLECTION_ARN KnowledgeBaseRoleArn=$KB_ROLE_ARN \
           --capabilities CAPABILITY_NAMED_IAM \
-          --no-fail-on-empty-changeset \
-          --debug
-      ############################# remove debug ^^^
+          --no-fail-on-empty-changeset 
 
-      - echo "Defining provisioned concurrency for Lambda alias..."
-      - |
-        aws lambda put-provisioned-concurrency-config \
-          --function-name "${PROJECT_ID}-${ACCOUNT_ID}-eassistant" \
-          --qualifier live \
-          --provisioned-concurrent-executions 3
+      # - echo "Defining provisioned concurrency for Lambda alias..."
+      # - |
+      #   aws lambda put-provisioned-concurrency-config \
+      #     --function-name "${PROJECT_ID}-${ACCOUNT_ID}-eassistant" \
+      #     --qualifier live \
+      #     --provisioned-concurrent-executions 3
 
 
-      - echo "Registering concurrency autoscaling schedule..."
-      - |
-        LAMBDA_ALIAS="${PROJECT_ID}-${ACCOUNT_ID}-eassistant:live"
-        aws application-autoscaling register-scalable-target \
-          --service-namespace lambda \
-          --resource-id function:${LAMBDA_ALIAS} \
-          --scalable-dimension lambda:function:ProvisionedConcurrency \
-          --min-capacity 0 \
-          --max-capacity 3
+      # - echo "Registering concurrency autoscaling schedule..."
+      # - |
+      #   LAMBDA_ALIAS="${PROJECT_ID}-${ACCOUNT_ID}-eassistant:live"
+      #   aws application-autoscaling register-scalable-target \
+      #     --service-namespace lambda \
+      #     --resource-id function:${LAMBDA_ALIAS} \
+      #     --scalable-dimension lambda:function:ProvisionedConcurrency \
+      #     --min-capacity 0 \
+      #     --max-capacity 3
 
-        aws application-autoscaling put-scheduled-action \
-          --scheduled-action-name "EnableConcurrencyOfficeHours" \
-          --service-namespace lambda \
-          --resource-id function:${LAMBDA_ALIAS} \
-          --scalable-dimension lambda:function:ProvisionedConcurrency \
-          --schedule "cron(0 6 ? * MON-FRI *)" \
-          --scalable-target-action MinCapacity=3,MaxCapacity=3
+      #   aws application-autoscaling put-scheduled-action \
+      #     --scheduled-action-name "EnableConcurrencyOfficeHours" \
+      #     --service-namespace lambda \
+      #     --resource-id function:${LAMBDA_ALIAS} \
+      #     --scalable-dimension lambda:function:ProvisionedConcurrency \
+      #     --schedule "cron(0 6 ? * MON-FRI *)" \
+      #     --scalable-target-action MinCapacity=3,MaxCapacity=3
 
-        aws application-autoscaling put-scheduled-action \
-          --scheduled-action-name "DisableConcurrencyAfterHours" \
-          --service-namespace lambda \
-          --resource-id function:${LAMBDA_ALIAS} \
-          --scalable-dimension lambda:function:ProvisionedConcurrency \
-          --schedule "cron(0 16 ? * MON-FRI *)" \
-          --scalable-target-action MinCapacity=0,MaxCapacity=0
+      #   aws application-autoscaling put-scheduled-action \
+      #     --scheduled-action-name "DisableConcurrencyAfterHours" \
+      #     --service-namespace lambda \
+      #     --resource-id function:${LAMBDA_ALIAS} \
+      #     --scalable-dimension lambda:function:ProvisionedConcurrency \
+      #     --schedule "cron(0 16 ? * MON-FRI *)" \
+      #     --scalable-target-action MinCapacity=0,MaxCapacity=0
 
 artifacts:
   files:
     - '**/*'
+
 
 
 
